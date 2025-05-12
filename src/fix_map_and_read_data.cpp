@@ -39,7 +39,7 @@
 #include <string.h>
 #include "precice/preciceC.h"
 #include "fix_map_and_read_data.h"
-#include "domain.h"
+#include "atom.h"
 #include "error.h"
 #include "force.h"
 #include "update.h"
@@ -92,24 +92,8 @@ int FixMapAndReadData::setmask()
 
 void FixMapAndReadData::init()
 {
-  // Initialize precice
-  // TODO do this in its own script command
-  const char *participant_name = "Particle";
-  const char *config_file_name = "../precice-config.xml";
-  int mpi_rank = -1;
-  MPI_Comm_rank(world, &mpi_rank);
-  int mpi_size = -1;
-  MPI_Comm_size(world, &mpi_size);
-  precicec_createParticipant_withCommunicator(participant_name, config_file_name, mpi_rank, mpi_size, &world);
-
-  double bounding_box[6] = {domain->sublo[0], domain->subhi[0],
-                            domain->sublo[1], domain->subhi[1],
-                            domain->sublo[2], domain->subhi[2]};
-  precicec_setMeshAccessRegion(mesh_name, bounding_box);
-
-  precicec_initialize();
-
   // error checks on coarsegraining
+  // TODO do we need this?
   if (force->cg_active())
     error->cg(FLERR, this->style);
 }
@@ -135,13 +119,6 @@ void FixMapAndReadData::min_setup(int vflag)
 
 void FixMapAndReadData::initial_integrate(int vflag)
 {
-  if (!precicec_isCouplingOngoing())
-  {
-    // TODO gracefully handle this
-    precicec_finalize();
-    error->all(FLERR, "precicec_isCouplingOngoing() == false");
-  }
-
   if (precicec_requiresWritingCheckpoint())
   {
     // TODO write checkpoint
@@ -189,13 +166,6 @@ void FixMapAndReadData::min_post_force(int vflag)
 void FixMapAndReadData::end_of_step()
 {
   precicec_advance(update->dt);
-
-  if (!precicec_isCouplingOngoing())
-  {
-    // TODO gracefully handle this
-    precicec_finalize();
-    error->all(FLERR, "precicec_isCouplingOngoing() == false");
-  }
 
   if (precicec_requiresReadingCheckpoint())
   {
