@@ -1,4 +1,4 @@
 {
     "C_Cpp.default.compilerPath": "/usr/bin/gcc",
-    "cmake.sourceDirectory": "/home/robin/uni/LIGGGHTS-PUBLIC/src"
+    "cmake.sourceDirectory": "${workspaceFolder}/src",
 }
