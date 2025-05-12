@@ -77,6 +77,7 @@ IF(ENABLE_ALL)
   SET(DEFAULT_OFF ON)
 ENDIF()
 
+OPTION(ENABLE_PRECICE "User preCICE" ${DEFAULT_ON})
 OPTION(ENABLE_MPI    "Use MPI"      ${DEFAULT_ON})
 OPTION(ENABLE_VTK    "Use dump_vtk" ${DEFAULT_ON})
 OPTION(ENABLE_JPEG   "Use libjpeg"  ${DEFAULT_OFF})
@@ -356,6 +357,33 @@ IF(ENABLE_MPI)
 ELSE()
   SET(DISABLED_OPTIONS "${DISABLED_OPTIONS} MPI")
   MESSAGE(STATUS "Using MPI stubs")
+ENDIF()
+
+#=======================================
+IF(ENABLE_PRECICE)
+  IF(NOT ENABLE_MPI)
+    MESSAGE(FATAL_ERROR "ENABLE_PRECICE requires ENABLE_MPI")
+  ENDIF()
+
+  FIND_PACKAGE(precice REQUIRED CONFIG)
+
+  IF(precice_FOUND)
+    IF(precice_VERSION VERSION_LESS "3.2.0")
+      MESSAGE(FATAL_ERROR "preCICE version 3.2.0 or higher required!")
+    ENDIF()
+
+    INCLUDE_DIRECTORIES(${precice_INCLUDE_DIRS})
+    TARGET_LINK_LIBRARIES(liggghts_static PRIVATE precice::precice)
+    TARGET_LINK_LIBRARIES(liggghts_shared PRIVATE precice::precice)
+    TARGET_LINK_LIBRARIES(liggghts_bin PRIVATE precice::precice)
+
+    SET(ENABLED_OPTIONS "${ENABLED_OPTIONS} PRECICE")
+    MESSAGE(STATUS "Found preCICE: version " ${precice_VERSION})
+  ELSE()
+    MESSAGE(FATAL_ERROR "preCICE NOT found!")
+  ENDIF()
+ELSE()
+  SET(DISABLED_OPTIONS "${DISABLED_OPTIONS} PRECICE")
 ENDIF()
 
 #=======================================
