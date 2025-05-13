@@ -148,15 +148,21 @@ void PreciceAdvance::read_checkpoint()
 
   read_header();
 
+  // Create a new AtomVec instance with the specified style
+  const char *style = strdup(atom->atom_style);
+  atom->create_avec(style, 0, nullptr, nullptr); // TODO dont pass nullptrs
+  atom->nlocal = 0;
+  AtomVec *avec = atom->avec;
+
   // problem setup using info from header
   // TODO do we need this?
-  // int n;
-  // if (nprocs == 1) n = static_cast<int> (atom->natoms);
-  // else n = static_cast<int> (LB_FACTOR * atom->natoms / nprocs);
+  int n;
+  if (nprocs == 1) n = static_cast<int> (atom->natoms);
+  else n = static_cast<int> (1.1 * atom->natoms / nprocs); // TODO check LB_FACTOR
 
-  // atom->allocate_type_arrays();
-  // atom->avec->grow(n);
-  // n = atom->nmax;
+  atom->allocate_type_arrays();
+  atom->avec->grow(n);
+  n = atom->nmax;
 
   // read group names
   group->read_restart(fp);
@@ -166,26 +172,18 @@ void PreciceAdvance::read_checkpoint()
 
   // read in force fields
   // TODO we probably dont need this. However, other usecases might.
-  // force_fields();
+  force_fields();
 
   int nextra = modify->read_restart(fp);
   // TODO we probably dont need this. However, other usecases might.
-  // atom->nextra_store = nextra;
-  // memory->create(atom->extra,n,nextra,"atom:extra");
+  atom->nextra_store = nextra;
+  memory->create(atom->extra,atom->nmax,nextra,"atom:extra");
 
   // read atom data
   // each proc reads its own file, keeping all atoms in the files
   // perform irregular comm to migrate atoms to correct procs
   // close restart file when done
 
-  
-  // Create a new AtomVec instance with the specified style
-  const char *style = strdup(atom->atom_style);
-  atom->create_avec(style, 0, nullptr, nullptr); // TODO dont pass nullptrs
-  atom->natoms = 0;
-  atom->nlocal = 0;
-  AtomVec *avec = atom->avec;
-  
   int maxbuf = 0;
   double *buf = NULL;
   
@@ -203,7 +201,6 @@ void PreciceAdvance::read_checkpoint()
     error->one(FLERR,str);
   }
   
-  int n;  
   nread_int(&n,1,fp);
   if (n > maxbuf) {
     maxbuf = n;
@@ -358,6 +355,26 @@ void PreciceAdvance::read_header()
         if (screen) fprintf(screen,"   --> restart file = %s\n   --> LIGGGHTS = %s\n", 
                             version,universe->version);
       }
+      // parse version number
+      // version format is:
+      // Version LIGGGHTS-REPOSITORY-NAME MAJOR.MINOR.[....]
+      // MAJOR and MINOR are integers
+      std::string ver = std::string(version);
+      std::size_t space1 = ver.find(' ');
+      std::size_t space2 = ver.find(' ', space1+1);
+      std::size_t dot1 = ver.find('.', space2+1);
+      std::size_t dot2 = ver.find('.', dot1+1);
+      if (space1 != std::string::npos &&
+          space2 != std::string::npos &&
+          dot1 != std::string::npos &&
+          dot2 != std::string::npos)
+      {
+          std::string ver_major = ver.substr(space2+1, dot1-space2-1);
+          std::string ver_minor = ver.substr(dot1+1, dot2-dot1-1);
+          restart_major = atoi(ver_major.c_str());
+          restart_minor = atoi(ver_minor.c_str());
+          printf("version %d %d\n", restart_major, restart_minor);
+      }
       delete [] version;
 
     // check lmptype.h sizes, error if different
@@ -496,61 +513,33 @@ void PreciceAdvance::read_header()
     // read counts from checkpoint file, warn/error if different
     
     } else if (flag == NATOMS) {
-      bigint natoms = read_bigint();
-      if (natoms != atom->natoms && me == 0)
-        error->warning(FLERR,"Checkpoint file has different # of atoms");
+      atom->natoms = read_bigint();
     } else if (flag == NTYPES) {
-      int ntypes = read_int();
-      if (ntypes != atom->ntypes && me == 0)
-        error->all(FLERR,"Checkpoint file has different # of atom types");
+      atom->ntypes = read_int();
     } else if (flag == NBONDS) {
-      bigint nbonds = read_bigint();
-      if (nbonds != atom->nbonds && me == 0)
-        error->warning(FLERR,"Checkpoint file has different # of bonds");
+      atom->nbonds = read_bigint();
     } else if (flag == NBONDTYPES) {
-      int nbondtypes = read_int();
-      if (nbondtypes != atom->nbondtypes && me == 0)
-        error->all(FLERR,"Checkpoint file has different # of bond types");
+      atom->nbondtypes = read_int();
     } else if (flag == BOND_PER_ATOM) {
-      int bond_per_atom = read_int();
-      if (bond_per_atom != atom->bond_per_atom && me == 0)
-        error->warning(FLERR,"Checkpoint file has different # of bonds/atom");
+      atom->bond_per_atom = read_int();
     } else if (flag == NANGLES) {
-      bigint nangles = read_bigint();
-      if (nangles != atom->nangles && me == 0)
-        error->warning(FLERR,"Checkpoint file has different # of angles");
+      atom->nangles = read_bigint();
     } else if (flag == NANGLETYPES) {
-      int nangletypes = read_int();
-      if (nangletypes != atom->nangletypes && me == 0)
-        error->all(FLERR,"Checkpoint file has different # of angle types");
+      atom->nangletypes = read_int();
     } else if (flag == ANGLE_PER_ATOM) {
-      int angle_per_atom = read_int();
-      if (angle_per_atom != atom->angle_per_atom && me == 0)
-        error->warning(FLERR,"Checkpoint file has different # of angles/atom");
+      atom->angle_per_atom = read_int();
     } else if (flag == NDIHEDRALS) {
-      bigint ndihedrals = read_bigint();
-      if (ndihedrals != atom->ndihedrals && me == 0)
-        error->warning(FLERR,"Checkpoint file has different # of dihedrals");
+      atom->ndihedrals = read_bigint();
     } else if (flag == NDIHEDRALTYPES) {
-      int ndihedraltypes = read_int();
-      if (ndihedraltypes != atom->ndihedraltypes && me == 0)
-        error->all(FLERR,"Checkpoint file has different # of dihedral types");
+      atom->ndihedraltypes = read_int();
     } else if (flag == DIHEDRAL_PER_ATOM) {
-      int dihedral_per_atom = read_int();
-      if (dihedral_per_atom != atom->dihedral_per_atom && me == 0)
-        error->warning(FLERR,"Checkpoint file has different # of dihedrals/atom");
+      atom->dihedral_per_atom = read_int();
     } else if (flag == NIMPROPERS) {
-      bigint nimpropers = read_bigint();
-      if (nimpropers != atom->nimpropers && me == 0)
-        error->warning(FLERR,"Checkpoint file has different # of impropers");
+      atom->nimpropers = read_bigint();
     } else if (flag == NIMPROPERTYPES) {
-      int nimpropertypes = read_int();
-      if (nimpropertypes != atom->nimpropertypes && me == 0)
-        error->all(FLERR,"Checkpoint file has different # of improper types");
+      atom->nimpropertypes = read_int();
     } else if (flag == IMPROPER_PER_ATOM) {
-      int improper_per_atom = read_int();
-      if (improper_per_atom != atom->improper_per_atom && me == 0)
-        error->warning(FLERR,"Checkpoint file has different # of impropers/atom");
+      atom->improper_per_atom = read_int();
 
     // read simulation box from checkpoint file, warn if different
 

@@ -64,9 +64,12 @@ class ReadRestart : protected Pointers {
 
  protected:
   int me,nprocs,nprocs_file;
+  int restart_major;
+  int restart_minor;
   FILE *fp;
 
   void type_arrays();
+  void force_fields();
 
   void nread_int(int *, int, FILE *);
   void nread_double(double *, int, FILE *);
@@ -79,12 +82,9 @@ class ReadRestart : protected Pointers {
  private:
   int nfix_restart_global,nfix_restart_peratom;
   int swapflag;
-  int restart_major;
-  int restart_minor;
 
   void file_search(char *, char *);
   void header();
-  void force_fields();
 
   int autodetect(FILE **, char *);
 };
