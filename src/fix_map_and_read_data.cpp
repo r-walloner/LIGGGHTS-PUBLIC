@@ -165,11 +165,4 @@ void FixMapAndReadData::min_post_force(int vflag)
 /* ---------------------------------------------------------------------- */
 void FixMapAndReadData::end_of_step()
 {
-  precicec_advance(update->dt);
-
-  if (precicec_requiresReadingCheckpoint())
-  {
-    // TODO read checkpoint
-    // TODO roll back time to beginning of step
-  }
 }
