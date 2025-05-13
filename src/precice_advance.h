@@ -44,14 +44,22 @@ CommandStyle(precice_advance,PreciceAdvance)
 #ifndef LMP_PRECICE_ADVANCE_H
 #define LMP_PRECICE_ADVANCE_H
 
-#include "pointers.h"
+#include "read_restart.h"
 
 namespace LAMMPS_NS {
 
-class PreciceAdvance : protected Pointers {
+class PreciceAdvance : protected ReadRestart {
  public:
   PreciceAdvance(class LAMMPS *);
+  ~PreciceAdvance();
   void command(int, char **);
+
+ private:
+  char *checkpoint_file;
+
+  void write_checkpoint();
+  void read_checkpoint();
+  void read_header();
 };
 
 }

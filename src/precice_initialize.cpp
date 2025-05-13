@@ -42,6 +42,7 @@
 #include "domain.h"
 #include "error.h"
 #include "mpi_liggghts.h"
+#include "write_restart.h"
 
 using namespace LAMMPS_NS;
 
@@ -83,4 +84,14 @@ void PreciceInitialize::command(int narg, char **arg)
 
   // initialize
   precicec_initialize();
+
+  // write first checkpoint if needed
+  if (true)
+  {
+    WriteRestart *restart = new WriteRestart(lmp);
+    char *file = strdup("precice_checkpoint.%");
+    restart->write(file);
+    delete restart;
+    free(file);
+  }
 }
