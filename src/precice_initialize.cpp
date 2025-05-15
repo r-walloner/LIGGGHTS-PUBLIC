@@ -86,8 +86,9 @@ void PreciceInitialize::command(int narg, char **arg)
   precicec_initialize();
 
   // write first checkpoint if needed
-  if (true)
+  if (precicec_requiresWritingCheckpoint())
   {
+    // TODO code duplication here
     WriteRestart *restart = new WriteRestart(lmp);
     char *file = strdup("precice_checkpoint.%");
     restart->write(file);

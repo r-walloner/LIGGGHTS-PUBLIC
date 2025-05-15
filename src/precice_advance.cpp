@@ -46,6 +46,7 @@
 #include "input.h"
 #include "memory.h"
 #include "modify.h"
+#include "neighbor.h"
 #include "read_restart.h"
 #include "signal_handling.h"
 #include "universe.h"
@@ -93,10 +94,8 @@ void PreciceAdvance::command(int narg, char **arg)
   precicec_advance(update->dt);
 
   // revert to last checkpoint if needed
-  if (update->ntimestep == 2)
-  {
+  if (precicec_requiresReadingCheckpoint())
     read_checkpoint();
-  }
 
   // end simulation if coupling is finished
   if (!precicec_isCouplingOngoing()) {
@@ -106,7 +105,7 @@ void PreciceAdvance::command(int narg, char **arg)
   }
 
   // write checkpoint if needed
-  if (true)
+  if (precicec_requiresWritingCheckpoint())
     write_checkpoint();
 }
 
