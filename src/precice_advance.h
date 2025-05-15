@@ -57,9 +57,9 @@ class PreciceAdvance : protected ReadRestart {
  private:
   char *checkpoint_file;
 
-  void write_checkpoint();
-  void read_checkpoint();
-  void read_header();
+//   void write_checkpoint();
+//   void read_checkpoint();
+//   void read_header();
 };
 
 }
