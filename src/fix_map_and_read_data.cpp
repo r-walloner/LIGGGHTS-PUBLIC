@@ -123,8 +123,6 @@ void FixMapAndReadData::initial_integrate(int vflag)
   {
     // TODO write checkpoint
   }
-
-  update->dt = precicec_getMaxTimeStepSize();
 }
 
 /* ---------------------------------------------------------------------- */
