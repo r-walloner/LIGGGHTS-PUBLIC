@@ -37,7 +37,7 @@
 
 #ifdef COMPUTE_CLASS
 
-ComputeStyle(precice_read,PreciceReadAtom)
+ComputeStyle(precice_read/atom,PreciceReadAtom)
 
 #else
 
@@ -57,8 +57,11 @@ class PreciceReadAtom : public Compute {
   double memory_usage();
 
  private:
+  char *mesh_name;
+  char *data_name;
+  double relative_read_time;
   int nmax;
-  double **precice_data;
+  double **data;
 };
 
 }

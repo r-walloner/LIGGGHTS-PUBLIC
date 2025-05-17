@@ -40,9 +40,6 @@
 #include "compute_precice_read_atom.h"
 #include "atom.h"
 #include "update.h"
-#include "modify.h"
-#include "comm.h"
-#include "fix_multisphere.h" 
 #include "force.h"
 #include "memory.h"
 #include "error.h"
@@ -54,32 +51,41 @@ using namespace LAMMPS_NS;
 PreciceReadAtom::PreciceReadAtom(LAMMPS *lmp, int &iarg, int narg, char **arg) :
   Compute(lmp, iarg, narg, arg)
 {
-  // if (narg != iarg) error->all(FLERR,"Illegal compute ke/atom command");
+  if ((narg - iarg < 2) || (narg - iarg > 3))
+    error->all(FLERR,"Illegal compute precice_read/atom command");
+
+  // parse arguments
+
+  mesh_name = strdup(arg[iarg++]);
+  data_name = strdup(arg[iarg++]);
+
+  if (iarg < narg)
+    relative_read_time = force->numeric(FLERR,arg[iarg++]);
+  else
+    relative_read_time = 1.0;
+  relative_read_time *= update->dt;
+
+  // set  up compute
 
   peratom_flag = 1;
-  size_peratom_cols = 3; // TODO does this need to be configured from precice?
-  
+  size_peratom_cols = precicec_getDataDimensions(mesh_name, data_name);
+
   nmax = 0;
-  precice_data = NULL;
+  data = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
 
 PreciceReadAtom::~PreciceReadAtom()
 {
-  memory->destroy(precice_data);
+  free(mesh_name);
+  free(data_name);
+  memory->destroy(data);
 }
 
 /* ---------------------------------------------------------------------- */
 
-void PreciceReadAtom::init()
-{
-  // int count = 0;
-  // for (int i = 0; i < modify->ncompute; i++)
-  //   if (strcmp(modify->compute[i]->style,"ke/atom") == 0) count++;
-  // if (count > 1 && comm->me == 0)
-  //   error->warning(FLERR,"More than one compute ke/atom");
-}
+void PreciceReadAtom::init() {}
 
 /* ---------------------------------------------------------------------- */
 
@@ -87,20 +93,25 @@ void PreciceReadAtom::compute_peratom()
 {
   invoked_peratom = update->ntimestep;
 
-  // grow precice_data vector if necessary
+  // grow data array if necessary
 
   if (atom->nlocal > nmax) {
-    memory->destroy(precice_data);
+    memory->destroy(data);
     nmax = atom->nlocal;
-    memory->create(precice_data,nmax,3,"precice");
-    array_atom = precice_data;
+    char mem_name[256];
+    snprintf(mem_name, sizeof(mem_name), "precice%s%s", mesh_name, data_name);
+    memory->create(data, nmax, size_peratom_cols, mem_name);
+    array_atom = data;
   }
+
+  // read data
 
   for (int i = 0; i < atom->nlocal; i++) {
     if (!(atom->mask[i] & groupbit))
       continue;
     
-    precicec_mapAndReadData("Fluid-Mesh", "Force", 1, atom->x[i], update->dt, precice_data[i]);
+    precicec_mapAndReadData(
+      mesh_name, data_name, 1, atom->x[i], relative_read_time, data[i]);
   }
 }
 
@@ -110,6 +121,6 @@ void PreciceReadAtom::compute_peratom()
 
 double PreciceReadAtom::memory_usage()
 {
-  double bytes = nmax * domain->dimension * sizeof(double);
+  double bytes = nmax * size_peratom_cols * sizeof(double);
   return bytes;
 }
