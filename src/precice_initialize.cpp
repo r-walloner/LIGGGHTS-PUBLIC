@@ -42,6 +42,7 @@
 #include "domain.h"
 #include "error.h"
 #include "mpi_liggghts.h"
+#include "update.h"
 #include "write_restart.h"
 
 using namespace LAMMPS_NS;
@@ -95,4 +96,8 @@ void PreciceInitialize::command(int narg, char **arg)
   //   delete restart;
   //   free(file);
   // }
+
+  // set timestep
+  update->dt = precicec_getMaxTimeStepSize();
+  update->timestep_set = true;
 }
