@@ -34,15 +34,18 @@
     Contributing author and copyright for this file:
     Robin Walloner
 ------------------------------------------------------------------------- */
-
+// TODO clean headers
+#include <cassert>
 #include <stdlib.h>
 #include <string.h>
+#include <cmath>
 #include "precice/preciceC.h"
-#include "fix_map_and_read_data.h"
+#include "fix_fluid_buoyancy.h"
 #include "atom.h"
 #include "error.h"
 #include "force.h"
 #include "update.h"
+#include "compute.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -51,109 +54,93 @@ using namespace FixConst;
    parse arguments
 ------------------------------------------------------------------------- */
 
-FixMapAndReadData::FixMapAndReadData(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
+FixFluidBuoyancy::FixFluidBuoyancy(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
 {
-  if (narg < 7)
-    error->all(FLERR, "Illegal fix map_and_read_data command");
+  if (narg < 3)
+    error->all(FLERR, "Illegal fix fluid/buoyancy command");
 
-  // parse arguments and copy strings
-  mesh_name = strdup(arg[3]);
-  data_name = strdup(arg[4]);
-  relative_read_time = force->numeric(FLERR, arg[5]);
-  target_property = strdup(arg[6]);
+  
 }
 
 /* ----------------------------------------------------------------------
    free allocated memory
 ------------------------------------------------------------------------- */
 
-FixMapAndReadData::~FixMapAndReadData()
+FixFluidBuoyancy::~FixFluidBuoyancy()
 {
-  free(mesh_name);
-  free(data_name);
-  free(target_property);
 }
 
 /* ----------------------------------------------------------------------
    set mask for when to call this fix
 -------------------------------------------------------------------------- */
 
-int FixMapAndReadData::setmask()
+int FixFluidBuoyancy::setmask()
 {
   int mask = 0;
-  mask |= INITIAL_INTEGRATE;
   mask |= POST_FORCE;
   mask |= MIN_POST_FORCE;
-  mask |= END_OF_STEP;
   return mask;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixMapAndReadData::init()
+void FixFluidBuoyancy::init()
 {
-  // error checks on coarsegraining
-  // TODO do we need this?
-  if (force->cg_active())
-    error->cg(FLERR, this->style);
+  // Store the compute index for later use
+  icompute_p_grad_fluid = modify->find_compute("p_grad_fluid");
+  if (icompute_p_grad_fluid < 0)
+    error->all(FLERR, "Compute ID 'p_grad_fluid' not found");
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixMapAndReadData::setup(int vflag)
-{
-  if (!strstr(update->integrate_style, "verlet"))
-    error->all(FLERR, "fix map_and_read_data is only implemented for verlet integration.");
-
-  post_force(vflag);
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixMapAndReadData::min_setup(int vflag)
+void FixFluidBuoyancy::setup(int vflag)
 {
   post_force(vflag);
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixMapAndReadData::initial_integrate(int vflag)
+void FixFluidBuoyancy::min_setup(int vflag)
 {
+  post_force(vflag);
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixMapAndReadData::post_force(int vflag)
+void FixFluidBuoyancy::post_force(int vflag)
 {
-  double **x = atom->x;
-  double **f = atom->f;
-  int *mask = atom->mask;
-  int nlocal = atom->nlocal;
+  // Assume that all particles have the same radius
+  const double radius = atom->radius[0];
+  for (int i = 1; i < atom->nlocal; i++) {
+    assert(atom->radius[i] == radius && "All particles must have the same radius");
+  }
+  // Compute particle volume
+  const double volume = (4.0 / 3.0) * M_PI * pow(radius, 3);
 
-  double read_forces[3];
-  for (int i = 0; i < nlocal; i++)
-  {
-    if (!(mask[i] & groupbit))
+  // Access per-atom pressure gradient from compute
+  Compute *c = modify->compute[icompute_p_grad_fluid];
+  if (!(c->invoked_flag & INVOKED_PERATOM)) {
+    c->compute_peratom();
+    c->invoked_flag |= INVOKED_PERATOM;
+  }
+  double **p_grad_fluid = c->array_atom;
+  if (!p_grad_fluid)
+    error->all(FLERR, "Compute does not provide a per-atom array");
+
+  // Calculate and apply buoyancy force
+  for (int i = 0; i < atom->nlocal; i++) {
+    if (!(atom->mask[i] & groupbit))
       continue;
-
-    // TODO relative read time
-    relative_read_time = update->dt;
-    precicec_mapAndReadData(mesh_name, data_name, 1, x[i], relative_read_time, read_forces);
-
-    f[i][0] += read_forces[0];
-    f[i][1] += read_forces[1];
-    f[i][2] += read_forces[2];
+    
+    for (int d = 0; d < 3; d++)
+      atom->f[i][d] += -volume * p_grad_fluid[i][d];
   }
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixMapAndReadData::min_post_force(int vflag)
+void FixFluidBuoyancy::min_post_force(int vflag)
 {
   post_force(vflag);
-}
-
-/* ---------------------------------------------------------------------- */
-void FixMapAndReadData::end_of_step()
-{
 }

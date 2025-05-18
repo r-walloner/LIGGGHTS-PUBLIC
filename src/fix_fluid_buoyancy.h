@@ -37,36 +37,32 @@
 
 #ifdef FIX_CLASS
 
-FixStyle(map_and_read_data, FixMapAndReadData)
+FixStyle(fluid/buoyancy, FixFluidBuoyancy)
 
 #else
 
-#ifndef LMP_FIX_MAP_AND_READ_DATA_H
-#define LMP_FIX_MAP_AND_READ_DATA_H
+#ifndef LMP_FIX_FLUID_BUOYANCY_H
+#define LMP_FIX_FLUID_BUOYANCY_H
 
 #include "fix.h"
 
 namespace LAMMPS_NS
 {
 
-  class FixMapAndReadData : public Fix
+  class FixFluidBuoyancy : public Fix
   {
   public:
-    FixMapAndReadData(class LAMMPS *, int, char **);
-    ~FixMapAndReadData();
+    FixFluidBuoyancy(class LAMMPS *, int, char **);
+    ~FixFluidBuoyancy();
     int setmask();
     void init();
     void setup(int);
     void min_setup(int);
-    void initial_integrate(int);
     void post_force(int);
     void min_post_force(int);
-    void end_of_step();
 
   private:
-    char *mesh_name, *data_name;
-    double relative_read_time;
-    char *target_property;
+    int icompute_p_grad_fluid;
   };
 
 }
