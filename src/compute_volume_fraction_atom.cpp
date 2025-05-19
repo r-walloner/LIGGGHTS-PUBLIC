@@ -117,7 +117,8 @@ void ComputeVolumeFractionAtom::compute_peratom()
     // Volume fraction = particle volume / voronoi cell volume
     v_frac[i] = particle_volume / voro_tess[i][0];
     
-    assert(v_frac[i] >= 0.0 && "Volume fraction is negative");
+    assert(v_frac[i] >= 0.0 && "Particle volume fraction is negative");
+    assert(v_frac[i] <= 1.0 && "Particle volume fraction is greater than 1.0");
   }
 }
 
