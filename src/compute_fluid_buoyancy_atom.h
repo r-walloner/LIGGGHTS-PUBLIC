@@ -35,42 +35,40 @@
     Robin Walloner
 ------------------------------------------------------------------------- */
 
-#ifdef FIX_CLASS
+#ifdef COMPUTE_CLASS
 
-FixStyle(fluid/buoyancy, FixFluidBuoyancy)
+ComputeStyle(fluid_buoyancy/atom,ComputeFluidBuoyancyAtom)
 
 #else
 
-#ifndef LMP_FIX_FLUID_BUOYANCY_H
-#define LMP_FIX_FLUID_BUOYANCY_H
+#ifndef LMP_COMPUTE_FLUID_BUOYANCY_ATOM_H
+#define LMP_COMPUTE_FLUID_BUOYANCY_ATOM_H
 
-#include "fix.h"
+#include "compute.h"
 
-namespace LAMMPS_NS
-{
+namespace LAMMPS_NS {
 
-  class FixFluidBuoyancy : public Fix
-  {
-  public:
-    FixFluidBuoyancy(class LAMMPS *, int, char **);
-    ~FixFluidBuoyancy();
-    int setmask();
-    void init();
-    void setup(int);
-    void min_setup(int);
-    void post_force(int);
-    void min_post_force(int);
+class ComputeFluidBuoyancyAtom : public Compute {
+ public:
+  ComputeFluidBuoyancyAtom(class LAMMPS *, int &iarg, int, char **);
+  ~ComputeFluidBuoyancyAtom();
+  void init();
+  void compute_peratom();
+  double memory_usage();
 
-  private:
-    int icompute_p_grad_fluid;
-  };
+ private:
+  Compute *c_p_grad_fluid;
+  double **f_buoyancy;
+  int nmax;
+};
 
 }
 
 #endif
 #endif
 
-    /* ERROR/WARNING messages:
-    # TODO document errors
+/* ERROR/WARNING messages:
 
-    */
+// TODO
+
+*/

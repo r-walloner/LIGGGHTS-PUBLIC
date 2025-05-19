@@ -6,7 +6,7 @@
     ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
     ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
     ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
 
     DEM simulation engine, released by
     DCS Computing Gmbh, Linz, Austria
@@ -34,82 +34,62 @@
     Contributing author and copyright for this file:
     Robin Walloner
 ------------------------------------------------------------------------- */
-// TODO clean headers
+
 #include <cassert>
-#include <stdlib.h>
-#include <string.h>
 #include <cmath>
-#include "precice/preciceC.h"
-#include "fix_fluid_buoyancy.h"
+#include "compute_fluid_buoyancy_atom.h"
 #include "atom.h"
 #include "error.h"
-#include "force.h"
+#include "memory.h"
+#include "modify.h"
 #include "update.h"
-#include "compute.h"
 
 using namespace LAMMPS_NS;
-using namespace FixConst;
 
-/* ----------------------------------------------------------------------
-   parse arguments
-------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
 
-FixFluidBuoyancy::FixFluidBuoyancy(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
+ComputeFluidBuoyancyAtom::ComputeFluidBuoyancyAtom(LAMMPS *lmp, int &iarg, int narg, char **arg) :
+  Compute(lmp, iarg, narg, arg)
 {
-  if (narg < 3)
-    error->all(FLERR, "Illegal fix fluid/buoyancy command");
+  peratom_flag = 1;
+  size_peratom_cols = 3;
 
-  
-}
+  c_p_grad_fluid = NULL;
 
-/* ----------------------------------------------------------------------
-   free allocated memory
-------------------------------------------------------------------------- */
-
-FixFluidBuoyancy::~FixFluidBuoyancy()
-{
-}
-
-/* ----------------------------------------------------------------------
-   set mask for when to call this fix
--------------------------------------------------------------------------- */
-
-int FixFluidBuoyancy::setmask()
-{
-  int mask = 0;
-  mask |= POST_FORCE;
-  mask |= MIN_POST_FORCE;
-  return mask;
+  f_buoyancy = NULL;
+  nmax = 0;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixFluidBuoyancy::init()
+ComputeFluidBuoyancyAtom::~ComputeFluidBuoyancyAtom()
 {
-  // Store the compute index for later use
-  icompute_p_grad_fluid = modify->find_compute("p_grad_fluid");
-  if (icompute_p_grad_fluid < 0)
-    error->all(FLERR, "Compute ID 'p_grad_fluid' not found");
+  memory->destroy(f_buoyancy);
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixFluidBuoyancy::setup(int vflag)
-{
-  post_force(vflag);
+void ComputeFluidBuoyancyAtom::init() {
+  // Find the required computes
+  c_p_grad_fluid = modify->find_compute_id("p_grad_fluid");
+  if (!c_p_grad_fluid)
+    error->all(FLERR, "Cannot find compute p_grad_gluid");
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixFluidBuoyancy::min_setup(int vflag)
+void ComputeFluidBuoyancyAtom::compute_peratom()
 {
-  post_force(vflag);
-}
+  invoked_peratom = update->ntimestep;
 
-/* ---------------------------------------------------------------------- */
+  // grow data array if necessary
+  if (atom->nlocal > nmax) {
+    memory->destroy(f_buoyancy);
+    nmax = atom->nlocal;
+    memory->create(f_buoyancy, nmax, size_peratom_cols, "compute:fluid_buoyancy/atom");
+    array_atom = f_buoyancy;
+  }
 
-void FixFluidBuoyancy::post_force(int vflag)
-{
   // Assume that all particles have the same radius
   const double radius = atom->radius[0];
   for (int i = 1; i < atom->nlocal; i++) {
@@ -119,12 +99,11 @@ void FixFluidBuoyancy::post_force(int vflag)
   const double volume = (4.0 / 3.0) * M_PI * pow(radius, 3);
 
   // Access per-atom pressure gradient from compute
-  Compute *c = modify->compute[icompute_p_grad_fluid];
-  if (!(c->invoked_flag & INVOKED_PERATOM)) {
-    c->compute_peratom();
-    c->invoked_flag |= INVOKED_PERATOM;
+  if (!(c_p_grad_fluid->invoked_flag & INVOKED_PERATOM)) {
+    c_p_grad_fluid->compute_peratom();
+    c_p_grad_fluid->invoked_flag |= INVOKED_PERATOM;
   }
-  double **p_grad_fluid = c->array_atom;
+  double **p_grad_fluid = c_p_grad_fluid->array_atom;
   if (!p_grad_fluid)
     error->all(FLERR, "Compute does not provide a per-atom array");
 
@@ -133,14 +112,17 @@ void FixFluidBuoyancy::post_force(int vflag)
     if (!(atom->mask[i] & groupbit))
       continue;
     
-    for (int d = 0; d < 3; d++)
-      atom->f[i][d] += -volume * p_grad_fluid[i][d];
+    for (int d = 0; d < size_peratom_cols; d++)
+      f_buoyancy[i][d] = -volume * p_grad_fluid[i][d];
   }
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   memory usage of local atom-based array
+------------------------------------------------------------------------- */
 
-void FixFluidBuoyancy::min_post_force(int vflag)
+double ComputeFluidBuoyancyAtom::memory_usage()
 {
-  post_force(vflag);
+  double bytes = nmax * size_peratom_cols * sizeof(double);
+  return bytes;
 }

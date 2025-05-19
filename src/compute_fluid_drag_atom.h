@@ -35,44 +35,41 @@
     Robin Walloner
 ------------------------------------------------------------------------- */
 
-#ifdef FIX_CLASS
+#ifdef COMPUTE_CLASS
 
-FixStyle(fluid/drag, FixFluidDrag)
+ComputeStyle(fluid_drag/atom,ComputeFluidDragAtom)
 
 #else
 
-#ifndef LMP_FIX_FLUID_DRAG_H
-#define LMP_FIX_FLUID_DRAG_H
+#ifndef LMP_COMPUTE_FLUID_DRAG_ATOM_H
+#define LMP_COMPUTE_FLUID_DRAG_ATOM_H
 
 #include "compute.h"
-#include "fix.h"
 
-namespace LAMMPS_NS
-{
+namespace LAMMPS_NS {
 
-  class FixFluidDrag : public Fix
-  {
-  public:
-    FixFluidDrag(class LAMMPS *, int, char **);
-    ~FixFluidDrag();
-    int setmask();
-    void init();
-    void setup(int);
-    void min_setup(int);
-    void post_force(int);
-    void min_post_force(int);
+class ComputeFluidDragAtom : public Compute {
+ public:
+  ComputeFluidDragAtom(class LAMMPS *, int &iarg, int, char **);
+  ~ComputeFluidDragAtom();
+  void init();
+  void compute_peratom();
+  double memory_usage();
 
-  private:
-    Compute *c_v_fluid;
-    Compute *c_vol_frac;
-  };
+ private:
+  Compute *c_v_fluid;
+  Compute *c_vol_frac;
+  double **f_drag;
+  int nmax;
+};
 
 }
 
 #endif
 #endif
 
-    /* ERROR/WARNING messages:
-    # TODO document errors
+/* ERROR/WARNING messages:
 
-    */
+// TODO
+
+*/

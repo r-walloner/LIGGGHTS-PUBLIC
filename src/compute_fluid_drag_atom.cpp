@@ -6,7 +6,7 @@
     ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
     ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
     ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
 
     DEM simulation engine, released by
     DCS Computing Gmbh, Linz, Austria
@@ -34,53 +34,45 @@
     Contributing author and copyright for this file:
     Robin Walloner
 ------------------------------------------------------------------------- */
-// TODO clean headers
+
 #include <cassert>
 #include <cmath>
-#include "fix_fluid_drag.h"
+#include "compute_fluid_drag_atom.h"
 #include "atom.h"
 #include "error.h"
 #include "math_extra.h"
+#include "memory.h"
 #include "modify.h"
+#include "update.h"
 
 using namespace LAMMPS_NS;
-using namespace FixConst;
 using namespace MathExtra;
 
-/* ----------------------------------------------------------------------
-   parse arguments
-------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
 
-FixFluidDrag::FixFluidDrag(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
+ComputeFluidDragAtom::ComputeFluidDragAtom(LAMMPS *lmp, int &iarg, int narg, char **arg) :
+  Compute(lmp, iarg, narg, arg)
 {
+  peratom_flag = 1;
+  size_peratom_cols = 3;
+
   c_v_fluid = NULL;
   c_vol_frac = NULL;
-}
 
-/* ----------------------------------------------------------------------
-   free allocated memory
-------------------------------------------------------------------------- */
-
-FixFluidDrag::~FixFluidDrag()
-{
-}
-
-/* ----------------------------------------------------------------------
-   set mask for when to call this fix
--------------------------------------------------------------------------- */
-
-int FixFluidDrag::setmask()
-{
-  int mask = 0;
-  mask |= POST_FORCE;
-  mask |= MIN_POST_FORCE;
-  return mask;
+  f_drag = NULL;
+  nmax = 0;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixFluidDrag::init()
+ComputeFluidDragAtom::~ComputeFluidDragAtom()
 {
+  memory->destroy(f_drag);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputeFluidDragAtom::init() {
   // Find required computes
   c_v_fluid = modify->find_compute_id("v_fluid");
   if (!c_v_fluid)
@@ -93,22 +85,18 @@ void FixFluidDrag::init()
 
 /* ---------------------------------------------------------------------- */
 
-void FixFluidDrag::setup(int vflag)
+void ComputeFluidDragAtom::compute_peratom()
 {
-  post_force(vflag);
-}
+  invoked_peratom = update->ntimestep;
 
-/* ---------------------------------------------------------------------- */
+  // grow data array if necessary
+  if (atom->nlocal > nmax) {
+    memory->destroy(f_drag);
+    nmax = atom->nlocal;
+    memory->create(f_drag, nmax, size_peratom_cols, "compute:fluid_drag/atom");
+    array_atom = f_drag;
+  }
 
-void FixFluidDrag::min_setup(int vflag)
-{
-  post_force(vflag);
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixFluidDrag::post_force(int vflag)
-{
   // Access per-atom fluid velocity and particle volume fraction from compute
   if (!(c_v_fluid->invoked_flag & INVOKED_PERATOM))
   {
@@ -129,6 +117,8 @@ void FixFluidDrag::post_force(int vflag)
     error->all(FLERR, "volume_fraction/atom compute does not provide a per-atom array");
 
   // Assume that all particles have the same radius
+  // TODO refactor this into its own compute to reduce code duplication
+  //   - maybe we can use the compute property/atom command
   const double radius = atom->radius[0];
   for (int i = 1; i < atom->nlocal; i++)
     assert(atom->radius[i] == radius && "All particles must have the same radius");
@@ -158,7 +148,9 @@ void FixFluidDrag::post_force(int vflag)
                mu_fluid;
 
     // drag coefficient
-    if (reynolds < 1000)
+    if (reynolds == 0)
+      drag_coeff = 0; // drag is zero for stationary particles, so drag_coeff does not matter
+    else if (reynolds < 1000)
       drag_coeff = 24.0 * (1.0 + 0.15 * pow(reynolds, 0.687)) / reynolds;
     else
       drag_coeff = 0.44;
@@ -174,16 +166,19 @@ void FixFluidDrag::post_force(int vflag)
              (2.0 * diameter);
 
     // drag force
-    for (int d = 0; d < 3; d++)
-      atom->f[i][d] += beta * volume * v_rel[d] / vol_frac[i];
+    for (int d = 0; d < size_peratom_cols; d++)
+      f_drag[i][d] = beta * volume * v_rel[d] / vol_frac[i];
   }
 
   free(v_rel);
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   memory usage of local atom-based array
+------------------------------------------------------------------------- */
 
-void FixFluidDrag::min_post_force(int vflag)
+double ComputeFluidDragAtom::memory_usage()
 {
-  post_force(vflag);
+  double bytes = nmax * size_peratom_cols * sizeof(double);
+  return bytes;
 }
