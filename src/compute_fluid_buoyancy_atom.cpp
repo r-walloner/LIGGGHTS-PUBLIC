@@ -52,9 +52,7 @@ ComputeFluidBuoyancyAtom::ComputeFluidBuoyancyAtom(LAMMPS *lmp, int &iarg, int n
   Compute(lmp, iarg, narg, arg)
 {
   peratom_flag = 1;
-  size_peratom_cols = 3;
-
-  c_p_grad_fluid = NULL;
+  size_peratom_cols = 0;
 
   f_buoyancy = NULL;
   nmax = 0;
@@ -69,12 +67,7 @@ ComputeFluidBuoyancyAtom::~ComputeFluidBuoyancyAtom()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeFluidBuoyancyAtom::init() {
-  // Find the required computes
-  c_p_grad_fluid = modify->find_compute_id("p_grad_fluid");
-  if (!c_p_grad_fluid)
-    error->all(FLERR, "Cannot find compute p_grad_gluid");
-}
+void ComputeFluidBuoyancyAtom::init() {}
 
 /* ---------------------------------------------------------------------- */
 
@@ -86,11 +79,13 @@ void ComputeFluidBuoyancyAtom::compute_peratom()
   if (atom->nlocal > nmax) {
     memory->destroy(f_buoyancy);
     nmax = atom->nlocal;
-    memory->create(f_buoyancy, nmax, size_peratom_cols, "compute:fluid_buoyancy/atom");
-    array_atom = f_buoyancy;
+    memory->create(f_buoyancy, nmax, "compute:fluid_buoyancy/atom");
+    vector_atom = f_buoyancy;
   }
 
   // Assume that all particles have the same radius
+  // TODO refactor this into its own compute to reduce code duplication
+  //   - maybe we can use the compute property/atom command
   const double radius = atom->radius[0];
   for (int i = 1; i < atom->nlocal; i++) {
     assert(atom->radius[i] == radius && "All particles must have the same radius");
@@ -98,22 +93,16 @@ void ComputeFluidBuoyancyAtom::compute_peratom()
   // Compute particle volume
   const double volume = (4.0 / 3.0) * M_PI * pow(radius, 3);
 
-  // Access per-atom pressure gradient from compute
-  if (!(c_p_grad_fluid->invoked_flag & INVOKED_PERATOM)) {
-    c_p_grad_fluid->compute_peratom();
-    c_p_grad_fluid->invoked_flag |= INVOKED_PERATOM;
-  }
-  double **p_grad_fluid = c_p_grad_fluid->array_atom;
-  if (!p_grad_fluid)
-    error->all(FLERR, "Compute does not provide a per-atom array");
+  // TODO get constants from global properties
+  const double rho_fluid = 1000; // kg/m^3
+  const double g = 9.81; // m/s^2
 
   // Calculate and apply buoyancy force
   for (int i = 0; i < atom->nlocal; i++) {
     if (!(atom->mask[i] & groupbit))
       continue;
     
-    for (int d = 0; d < size_peratom_cols; d++)
-      f_buoyancy[i][d] = -volume * p_grad_fluid[i][d];
+    f_buoyancy[i] = volume * rho_fluid * g;
   }
 }
 
@@ -123,6 +112,6 @@ void ComputeFluidBuoyancyAtom::compute_peratom()
 
 double ComputeFluidBuoyancyAtom::memory_usage()
 {
-  double bytes = nmax * size_peratom_cols * sizeof(double);
+  double bytes = nmax * sizeof(double);
   return bytes;
 }

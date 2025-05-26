@@ -57,8 +57,7 @@ class ComputeFluidBuoyancyAtom : public Compute {
   double memory_usage();
 
  private:
-  Compute *c_p_grad_fluid;
-  double **f_buoyancy;
+  double *f_buoyancy;
   int nmax;
 };
 
