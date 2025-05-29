@@ -64,6 +64,7 @@
         "cfenv": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp",
-        "cassert": "cpp"
+        "cassert": "cpp",
+        "core": "cpp"
     },
 }
