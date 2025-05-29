@@ -37,6 +37,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <precice/preciceC.h>
 #include "compute_fluid_drag_atom.h"
 #include "atom.h"
 #include "error.h"
@@ -133,6 +134,10 @@ void ComputeFluidDragAtom::compute_peratom()
   double beta, drag_coeff, reynolds;
   double *v_rel = (double *)malloc(3 * sizeof(double));
 
+  double B;
+  double *S = (double *)malloc(3 * sizeof(double));
+  S[0] = S[1] = S[2] = 0.0;
+
   // Calculate and apply drag force
   for (int i = 0; i < atom->nlocal; i++)
   {
@@ -168,8 +173,18 @@ void ComputeFluidDragAtom::compute_peratom()
     // drag force
     for (int d = 0; d < size_peratom_cols; d++)
       f_drag[i][d] = beta * volume * v_rel[d] / vol_frac[i];
-  }
 
+    // TODO move this to its own compute
+    B = beta * volume / (vol_frac[i] * (1 - vol_frac[i]));
+    S[0] = - B * v_rel[0];
+    S[1] = - B * v_rel[1];
+    S[2] = - B * v_rel[2];
+    
+    precicec_writeAndMapData("Fluid-Mesh", "DragForce", 1, atom->x[i], S);
+  }
+  
+
+  free(S);
   free(v_rel);
 }
 
