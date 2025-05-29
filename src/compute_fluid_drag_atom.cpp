@@ -127,8 +127,8 @@ void ComputeFluidDragAtom::compute_peratom()
   const double volume = (4.0 / 3.0) * M_PI * pow(radius, 3);
 
   // TODO get constants from global properties
-  const double rho_fluid = 1000.0; // kg/m^3 (density of water at 20°C)
-  const double mu_fluid = 8.9e-4; // Pa.s (dynamic viscosity of water at 20°C)
+  const double rho_fluid = 1.2; // kg/m^3
+  const double mu_fluid = 1.8e-5; // Pa.s
 
   double beta, drag_coeff, reynolds;
   double *v_rel = (double *)malloc(3 * sizeof(double));
