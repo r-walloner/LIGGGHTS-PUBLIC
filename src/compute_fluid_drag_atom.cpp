@@ -134,9 +134,8 @@ void ComputeFluidDragAtom::compute_peratom()
   double beta, drag_coeff, reynolds;
   double *v_rel = (double *)malloc(3 * sizeof(double));
 
-  double B;
-  double *S = (double *)malloc(3 * sizeof(double));
-  S[0] = S[1] = S[2] = 0.0;
+  double *expl_momentum = (double *)malloc(3 * sizeof(double));
+  double *impl_momentum = (double *)malloc(sizeof(double));
 
   // Calculate and apply drag force
   for (int i = 0; i < atom->nlocal; i++)
@@ -175,16 +174,17 @@ void ComputeFluidDragAtom::compute_peratom()
       f_drag[i][d] = beta * volume * v_rel[d] / vol_frac[i];
 
     // TODO move this to its own compute
-    B = beta * volume / (vol_frac[i] * (1 - vol_frac[i]));
-    S[0] = - B * v_rel[0];
-    S[1] = - B * v_rel[1];
-    S[2] = - B * v_rel[2];
+    *impl_momentum = beta * volume / (vol_frac[i] * (1 - vol_frac[i]));
+    precicec_writeAndMapData("Fluid-Mesh", "ImplicitMomentum", 1, atom->x[i], impl_momentum);
     
-    precicec_writeAndMapData("Fluid-Mesh", "DragForce", 1, atom->x[i], S);
+    for (int d = 0; d < 3; d++)
+      expl_momentum[d] = *impl_momentum * atom->v[i][d];
+    precicec_writeAndMapData("Fluid-Mesh", "ExplicitMomentum", 1, atom->x[i], expl_momentum);
   }
   
 
-  free(S);
+  free(expl_momentum);
+  free(impl_momentum);
   free(v_rel);
 }
 
