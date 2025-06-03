@@ -94,8 +94,11 @@ void ComputeFluidBuoyancyAtom::compute_peratom()
   const double volume = (4.0 / 3.0) * M_PI * pow(radius, 3);
 
   // TODO get constants from global properties
-  const double rho_fluid = 1.2; // kg/m^3
   const double g = 9.81; // m/s^2
+  // air:
+  // const double rho_fluid = 1.2; // kg/m^3 
+  // water:
+  const double rho_fluid = 1000; // kg/m^3 
 
   // Calculate and apply buoyancy force
   for (int i = 0; i < atom->nlocal; i++) {
