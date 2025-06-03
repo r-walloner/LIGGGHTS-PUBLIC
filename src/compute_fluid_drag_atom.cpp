@@ -69,12 +69,13 @@ ComputeFluidDragAtom::ComputeFluidDragAtom(LAMMPS *lmp, int &iarg, int narg, cha
   c_vol_frac = NULL;
 
   drag_law = -1;
-  if (strcmp(arg[iarg++], "stokes") == 0)
+  if (strcmp(arg[iarg], "stokes") == 0)
     drag_law = DRAG_STOKES;
-  else if (strcmp(arg[iarg++], "xiao_sun") == 0)
+  else if (strcmp(arg[iarg], "xiao_sun") == 0)
     drag_law = DRAG_XIAO_SUN;
   if (drag_law == -1)
     error->all(FLERR, "Illegal fluid drag law specified");
+  iarg++;
 
   f_drag = NULL;
   nmax = 0;
