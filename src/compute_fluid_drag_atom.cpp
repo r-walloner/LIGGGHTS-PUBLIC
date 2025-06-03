@@ -49,16 +49,32 @@
 using namespace LAMMPS_NS;
 using namespace MathExtra;
 
+enum
+{
+  DRAG_STOKES,
+  DRAG_XIAO_SUN
+};
+
 /* ---------------------------------------------------------------------- */
 
-ComputeFluidDragAtom::ComputeFluidDragAtom(LAMMPS *lmp, int &iarg, int narg, char **arg) :
-  Compute(lmp, iarg, narg, arg)
+ComputeFluidDragAtom::ComputeFluidDragAtom(LAMMPS *lmp, int &iarg, int narg, char **arg) : Compute(lmp, iarg, narg, arg)
 {
+  if (iarg + 1 != narg)
+    error->all(FLERR, "Illegal compute fluid_drag/atom command");
+
   peratom_flag = 1;
   size_peratom_cols = 3;
 
   c_v_fluid = NULL;
   c_vol_frac = NULL;
+
+  drag_law = -1;
+  if (strcmp(arg[iarg++], "stokes") == 0)
+    drag_law = DRAG_STOKES;
+  else if (strcmp(arg[iarg++], "xiao_sun") == 0)
+    drag_law = DRAG_XIAO_SUN;
+  if (drag_law == -1)
+    error->all(FLERR, "Illegal fluid drag law specified");
 
   f_drag = NULL;
   nmax = 0;
@@ -73,7 +89,8 @@ ComputeFluidDragAtom::~ComputeFluidDragAtom()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeFluidDragAtom::init() {
+void ComputeFluidDragAtom::init()
+{
   // Find required computes
   c_v_fluid = modify->find_compute_id("v_fluid");
   if (!c_v_fluid)
@@ -91,7 +108,8 @@ void ComputeFluidDragAtom::compute_peratom()
   invoked_peratom = update->ntimestep;
 
   // grow data array if necessary
-  if (atom->nlocal > nmax) {
+  if (atom->nlocal > nmax)
+  {
     memory->destroy(f_drag);
     nmax = atom->nlocal;
     memory->create(f_drag, nmax, size_peratom_cols, "compute:fluid_drag/atom");
@@ -147,41 +165,52 @@ void ComputeFluidDragAtom::compute_peratom()
     sub3(v_fluid[i], atom->v[i], v_rel);
     const double mag_v_rel = len3(v_rel);
 
-    // reynolds number
-    reynolds = (1 - vol_frac[i]) * rho_fluid * mag_v_rel * diameter /
-               mu_fluid;
+    if (drag_law == DRAG_XIAO_SUN)
+    {
+      // reynolds number
+      reynolds = (1 - vol_frac[i]) * rho_fluid * mag_v_rel * diameter /
+                 mu_fluid;
 
-    // drag coefficient
-    if (reynolds == 0)
-      drag_coeff = 0; // drag is zero for stationary particles, so drag_coeff does not matter
-    else if (reynolds < 1000)
-      drag_coeff = 24.0 * (1.0 + 0.15 * pow(reynolds, 0.687)) / reynolds;
-    else
-      drag_coeff = 0.44;
+      // drag coefficient
+      if (reynolds == 0)
+        drag_coeff = 0; // drag is zero for stationary particles, so drag_coeff does not matter
+      else if (reynolds < 1000)
+        drag_coeff = 24.0 * (1.0 + 0.15 * pow(reynolds, 0.687)) / reynolds;
+      else
+        drag_coeff = 0.44;
 
-    // beta
-    if (1 - vol_frac[i] < 0.8)
-      beta = 150.0 * pow(vol_frac[i], 2) * mu_fluid /
-                 ((1 - vol_frac[i]) * pow(diameter, 2)) +
-             1.75 * vol_frac[i] * rho_fluid * mag_v_rel / diameter;
-    else
-      beta = 3.0 * drag_coeff * (1 - vol_frac[i]) * pow(vol_frac[i], 2) *
-             rho_fluid * mag_v_rel * pow(1 - vol_frac[i], -2.65) /
-             (2.0 * diameter);
+      // beta
+      if (1 - vol_frac[i] < 0.8)
+        beta = 150.0 * pow(vol_frac[i], 2) * mu_fluid /
+                   ((1 - vol_frac[i]) * pow(diameter, 2)) +
+               1.75 * vol_frac[i] * rho_fluid * mag_v_rel / diameter;
+      else
+        beta = 3.0 * drag_coeff * (1 - vol_frac[i]) * pow(vol_frac[i], 2) *
+               rho_fluid * mag_v_rel * pow(1 - vol_frac[i], -2.65) /
+               (2.0 * diameter);
 
-    // drag force
-    for (int d = 0; d < size_peratom_cols; d++)
-      f_drag[i][d] = beta * volume * v_rel[d] / vol_frac[i];
+      // drag force
+      for (int d = 0; d < size_peratom_cols; d++)
+        f_drag[i][d] = beta * volume * v_rel[d] / vol_frac[i];
 
-    // TODO move this to its own compute
-    *impl_momentum = beta * volume / (vol_frac[i] * (1 - vol_frac[i]));
-    precicec_writeAndMapData("Fluid-Mesh", "ImplicitMomentum", 1, atom->x[i], impl_momentum);
-    
-    for (int d = 0; d < 3; d++)
-      expl_momentum[d] = *impl_momentum * atom->v[i][d];
-    precicec_writeAndMapData("Fluid-Mesh", "ExplicitMomentum", 1, atom->x[i], expl_momentum);
+      // TODO move this to its own compute
+      *impl_momentum = beta * volume / (vol_frac[i] * (1 - vol_frac[i]));
+      precicec_writeAndMapData("Fluid-Mesh", "ImplicitMomentum", 1, atom->x[i], impl_momentum);
+
+      for (int d = 0; d < 3; d++)
+        expl_momentum[d] = *impl_momentum * atom->v[i][d];
+      precicec_writeAndMapData("Fluid-Mesh", "ExplicitMomentum", 1, atom->x[i], expl_momentum);
+    }
+
+    else if (drag_law == DRAG_STOKES)
+    {
+      // stokes drag force 
+      for (int d = 0; d < 3; d++)
+      {
+        f_drag[i][d] = 3 * M_PI * mu_fluid * diameter * (1 - vol_frac[i]) * v_rel[d];
+      }
+    }
   }
-  
 
   free(expl_momentum);
   free(impl_momentum);
