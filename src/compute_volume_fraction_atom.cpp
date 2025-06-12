@@ -37,6 +37,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <precice/preciceC.h>
 #include "compute_volume_fraction_atom.h"
 #include "atom.h"
 #include "error.h"
@@ -119,6 +120,10 @@ void ComputeVolumeFractionAtom::compute_peratom()
     
     assert(v_frac[i] >= 0.0 && "Particle volume fraction is negative");
     assert(v_frac[i] <= 1.0 && "Particle volume fraction is greater than 1.0");
+
+    // Write volumes to precice
+    // TODO move this to a separate fix or compute
+    precicec_writeAndMapData("Fluid-Mesh", "Alpha", 1, atom->x[i], &particle_volume);
   }
 }
 

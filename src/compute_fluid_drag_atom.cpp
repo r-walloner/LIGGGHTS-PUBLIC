@@ -205,6 +205,8 @@ void ComputeFluidDragAtom::compute_peratom()
       for (int d = 0; d < 3; d++)
         expl_momentum[d] = *impl_momentum * atom->v[i][d];
       precicec_writeAndMapData("Fluid-Mesh", "ExplicitMomentum", 1, atom->x[i], expl_momentum);
+
+      precicec_writeAndMapData("Fluid-Mesh", "DragForce", 1, atom->x[i], f_drag[i]);
     }
 
     else if (drag_law == DRAG_STOKES)
