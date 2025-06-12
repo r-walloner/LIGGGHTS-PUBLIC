@@ -53,11 +53,17 @@ class ComputeVolumeFractionAtom : public Compute {
   ComputeVolumeFractionAtom(class LAMMPS *, int &iarg, int, char **);
   ~ComputeVolumeFractionAtom();
   void init();
+  void init_list(int, class NeighList *);
   void compute_peratom();
+  double weightingFunction(const double r);
   double memory_usage();
 
  private:
+  int method; // VOLUME_FRACTION_VORONOI or VOLUME_FRACTION_KERNEL
   Compute *c_voronoi;
+  NeighList *list;
+  double kernel_radius;
+  double kernel_radius_sq;
   double *v_frac;
   int nmax;
 };
