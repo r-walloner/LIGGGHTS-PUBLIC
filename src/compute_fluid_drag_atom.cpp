@@ -148,11 +148,11 @@ void ComputeFluidDragAtom::compute_peratom()
 
   // TODO get constants from global properties
   // air:
-  // const double rho_fluid = 1.2; // kg/m^3
-  // const double mu_fluid = 1.8e-5; // Pa.s
+  const double rho_fluid = 1; // kg/m^3
+  const double mu_fluid = 1.8e-5; // Pa.s
   // water:
-  const double rho_fluid = 1000; // kg/m^3
-  const double mu_fluid = 1e-3;  // Pa.s
+  // const double rho_fluid = 1000; // kg/m^3
+  // const double mu_fluid = 1e-3;  // Pa.s
 
   double beta, drag_coeff, reynolds;
   double *v_rel = (double *)malloc(3 * sizeof(double));
