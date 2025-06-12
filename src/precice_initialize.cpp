@@ -77,9 +77,9 @@ void PreciceInitialize::command(int narg, char **arg)
 
   // set mesh access region
   const double mesh_access_region[6] = {
-      domain->sublo[0], domain->subhi[0],
-      domain->sublo[1], domain->subhi[1],
-      domain->sublo[2], domain->subhi[2]};
+      domain->sublo[0] - 4e-4, domain->subhi[0] + 4e-4,
+      domain->sublo[1] - 4e-4, domain->subhi[1] + 4e-4,
+      domain->sublo[2] - 4e-4, domain->subhi[2] + 4e-4};
   for (int i = 0; i < n_meshes; i++)
     precicec_setMeshAccessRegion(mesh_names[i], mesh_access_region);
 
