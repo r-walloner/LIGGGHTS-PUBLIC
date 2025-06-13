@@ -76,10 +76,12 @@ void PreciceInitialize::command(int narg, char **arg)
       participant_name, config_file_name, mpi_rank, mpi_size, &world);
 
   // set mesh access region
+  // add a small buffer (=particle diameter) to the subdomain bounds
+  const double largest_atom = 2 * vectorMaxN(atom->radius, atom->nlocal);
   const double mesh_access_region[6] = {
-      domain->sublo[0] - 4e-4, domain->subhi[0] + 4e-4,
-      domain->sublo[1] - 4e-4, domain->subhi[1] + 4e-4,
-      domain->sublo[2] - 4e-4, domain->subhi[2] + 4e-4};
+      domain->sublo[0] - largest_atom, domain->subhi[0] + largest_atom,
+      domain->sublo[1] - largest_atom, domain->subhi[1] + largest_atom,
+      domain->sublo[2] - largest_atom, domain->subhi[2] + largest_atom};
   for (int i = 0; i < n_meshes; i++)
     precicec_setMeshAccessRegion(mesh_names[i], mesh_access_region);
 
