@@ -52,7 +52,8 @@ using namespace MathExtra;
 enum
 {
   DRAG_STOKES,
-  DRAG_XIAO_SUN
+  DRAG_XIAO_SUN,
+  DRAG_KOCH_HILL
 };
 
 /* ---------------------------------------------------------------------- */
@@ -73,6 +74,8 @@ ComputeFluidDragAtom::ComputeFluidDragAtom(LAMMPS *lmp, int &iarg, int narg, cha
     drag_law = DRAG_STOKES;
   else if (strcmp(arg[iarg], "xiao_sun") == 0)
     drag_law = DRAG_XIAO_SUN;
+  else if (strcmp(arg[iarg], "koch_hill") == 0)
+    drag_law = DRAG_KOCH_HILL;
   if (drag_law == -1)
     error->all(FLERR, "Illegal fluid drag law specified");
   iarg++;
@@ -154,7 +157,7 @@ void ComputeFluidDragAtom::compute_peratom()
   // const double rho_fluid = 1000; // kg/m^3
   // const double mu_fluid = 1e-3;  // Pa.s
 
-  double beta, drag_coeff, reynolds;
+  double beta, drag_coeff, reynolds, F_0, F_3;
   double *v_rel = (double *)malloc(3 * sizeof(double));
 
   double *expl_momentum = (double *)malloc(3 * sizeof(double));
@@ -170,29 +173,50 @@ void ComputeFluidDragAtom::compute_peratom()
     sub3(v_fluid[i], atom->v[i], v_rel);
     const double mag_v_rel = len3(v_rel);
 
-    if (drag_law == DRAG_XIAO_SUN)
+    if (drag_law == DRAG_XIAO_SUN || drag_law == DRAG_KOCH_HILL)
     {
       // reynolds number
       reynolds = (1 - vol_frac[i]) * rho_fluid * mag_v_rel * diameter /
                  mu_fluid;
 
-      // drag coefficient
-      if (reynolds == 0)
-        drag_coeff = 0; // drag is zero for stationary particles, so drag_coeff does not matter
-      else if (reynolds < 1000)
-        drag_coeff = 24.0 * (1.0 + 0.15 * pow(reynolds, 0.687)) / reynolds;
-      else
-        drag_coeff = 0.44;
+      if (drag_law == DRAG_XIAO_SUN)
+      {
+        // drag coefficient
+        if (reynolds == 0)
+          drag_coeff = 0; // drag is zero for stationary particles, so drag_coeff does not matter
+        else if (reynolds < 1000)
+          drag_coeff = 24.0 * (1.0 + 0.15 * pow(reynolds, 0.687)) / reynolds;
+        else
+          drag_coeff = 0.44;
 
-      // beta
-      if (1 - vol_frac[i] < 0.8)
-        beta = 150.0 * pow(vol_frac[i], 2) * mu_fluid /
-                   ((1 - vol_frac[i]) * pow(diameter, 2)) +
-               1.75 * vol_frac[i] * rho_fluid * mag_v_rel / diameter;
-      else
-        beta = 3.0 * drag_coeff * (1 - vol_frac[i]) * pow(vol_frac[i], 2) *
-               rho_fluid * mag_v_rel * pow(1 - vol_frac[i], -2.65) /
-               (2.0 * diameter);
+        // beta
+        if (1 - vol_frac[i] < 0.8)
+          beta = 150.0 * pow(vol_frac[i], 2) * mu_fluid /
+                    ((1 - vol_frac[i]) * pow(diameter, 2)) +
+                1.75 * vol_frac[i] * rho_fluid * mag_v_rel / diameter;
+        else
+          beta = 3.0 * drag_coeff * (1 - vol_frac[i]) * pow(vol_frac[i], 2) *
+                rho_fluid * mag_v_rel * pow(1 - vol_frac[i], -2.65) /
+                (2.0 * diameter);
+      }
+
+      else if (drag_law == DRAG_KOCH_HILL)
+      {
+        reynolds = (1 - vol_frac[i]) * rho_fluid * mag_v_rel * diameter /
+                  mu_fluid;
+
+        if (vol_frac[i] < 0.4)
+          F_0 = (1 + 3 * sqrt(vol_frac[i] / 2) + 2.109 * vol_frac[i] * log(vol_frac[i]) + 16.14 * vol_frac[i]) /
+                (1 + 0.681 * vol_frac[i] - 8.48 * pow(vol_frac[i], 2) + 8.16 * pow(vol_frac[i], 3));
+        else
+          F_0 = 10 * vol_frac[i] / pow(1 - vol_frac[i], 3);
+
+        F_3 = 0.0673 + 0.0212 * vol_frac[i] + (0.0232 / pow(1 - vol_frac[i], 5));
+
+        beta = 18 * mu_fluid * pow(1 - vol_frac[i], 2) * vol_frac[i] *
+              (F_0 + 0.5 * F_3 * reynolds) /
+              pow(diameter, 2);
+      }
 
       // drag force
       for (int d = 0; d < size_peratom_cols; d++)
