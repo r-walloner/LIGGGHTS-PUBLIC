@@ -43,6 +43,7 @@
 #include "force.h"
 #include "memory.h"
 #include "error.h"
+#include "vector_liggghts.h"
 
 using namespace LAMMPS_NS;
 
@@ -105,14 +106,13 @@ void PreciceReadAtom::compute_peratom()
   }
 
   // read data
+  precicec_mapAndReadData(
+      mesh_name, data_name, atom->nlocal, *atom->x, relative_read_time, *data);
 
-  for (int i = 0; i < atom->nlocal; i++) {
+  // zeroize data for atoms not in group
+  for (int i = 0; i < atom->nlocal; i++)
     if (!(atom->mask[i] & groupbit))
-      continue;
-    
-    precicec_mapAndReadData(
-      mesh_name, data_name, 1, atom->x[i], relative_read_time, data[i]);
-  }
+      vectorZeroizeN(data[i], size_peratom_cols);
 }
 
 /* ----------------------------------------------------------------------

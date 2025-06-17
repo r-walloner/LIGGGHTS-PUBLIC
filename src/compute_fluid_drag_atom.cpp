@@ -81,6 +81,8 @@ ComputeFluidDragAtom::ComputeFluidDragAtom(LAMMPS *lmp, int &iarg, int narg, cha
   iarg++;
 
   f_drag = NULL;
+  expl_momentum = NULL;
+  impl_momentum = NULL;
   nmax = 0;
 }
 
@@ -89,6 +91,8 @@ ComputeFluidDragAtom::ComputeFluidDragAtom(LAMMPS *lmp, int &iarg, int narg, cha
 ComputeFluidDragAtom::~ComputeFluidDragAtom()
 {
   memory->destroy(f_drag);
+  memory->destroy(expl_momentum);
+  memory->destroy(impl_momentum);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -115,8 +119,12 @@ void ComputeFluidDragAtom::compute_peratom()
   if (atom->nlocal > nmax)
   {
     memory->destroy(f_drag);
+    memory->destroy(expl_momentum);
+    memory->destroy(impl_momentum);
     nmax = atom->nlocal;
-    memory->create(f_drag, nmax, size_peratom_cols, "compute:fluid_drag/atom");
+    memory->create(f_drag, nmax, size_peratom_cols, "compute:fluid_drag/atom:f_drag");
+    memory->create(expl_momentum, nmax, size_peratom_cols, "compute:fluid_drag/atom:expl_momentum");
+    memory->create(impl_momentum, nmax, "compute:fluid_drag/atom:impl_momentum");
     array_atom = f_drag;
   }
 
@@ -159,9 +167,6 @@ void ComputeFluidDragAtom::compute_peratom()
 
   double beta, drag_coeff, reynolds, F_0, F_3;
   double *v_rel = (double *)malloc(3 * sizeof(double));
-
-  double *expl_momentum = (double *)malloc(3 * sizeof(double));
-  double *impl_momentum = (double *)malloc(sizeof(double));
 
   // Calculate and apply drag force
   for (int i = 0; i < atom->nlocal; i++)
@@ -222,15 +227,10 @@ void ComputeFluidDragAtom::compute_peratom()
       for (int d = 0; d < size_peratom_cols; d++)
         f_drag[i][d] = beta * volume * v_rel[d] / vol_frac[i];
 
-      // TODO move this to its own compute
-      *impl_momentum = beta * volume / (vol_frac[i] * (1 - vol_frac[i]));
-      precicec_writeAndMapData("Fluid-Mesh", "ImplicitMomentum", 1, atom->x[i], impl_momentum);
+      impl_momentum[i] = beta * volume / (vol_frac[i] * (1 - vol_frac[i]));
 
       for (int d = 0; d < 3; d++)
-        expl_momentum[d] = *impl_momentum * atom->v[i][d];
-      precicec_writeAndMapData("Fluid-Mesh", "ExplicitMomentum", 1, atom->x[i], expl_momentum);
-
-      precicec_writeAndMapData("Fluid-Mesh", "DragForce", 1, atom->x[i], f_drag[i]);
+        expl_momentum[i][d] = impl_momentum[i] * atom->v[i][d];
     }
 
     else if (drag_law == DRAG_STOKES)
@@ -243,8 +243,17 @@ void ComputeFluidDragAtom::compute_peratom()
     }
   }
 
-  free(expl_momentum);
-  free(impl_momentum);
+  if (drag_law == DRAG_XIAO_SUN || drag_law == DRAG_KOCH_HILL)
+  {
+    // TODO move this to its own compute
+    precicec_writeAndMapData(
+        "Fluid-Mesh", "DragForce", atom->nlocal, *atom->x, *f_drag);
+    precicec_writeAndMapData(
+        "Fluid-Mesh", "ExplicitMomentum", atom->nlocal, *atom->x, *expl_momentum);
+    precicec_writeAndMapData(
+        "Fluid-Mesh", "ImplicitMomentum", atom->nlocal, *atom->x, impl_momentum);
+  }
+
   free(v_rel);
 }
 
@@ -254,6 +263,6 @@ void ComputeFluidDragAtom::compute_peratom()
 
 double ComputeFluidDragAtom::memory_usage()
 {
-  double bytes = nmax * size_peratom_cols * sizeof(double);
+  double bytes = nmax * (1 + 2 * size_peratom_cols) * sizeof(double);
   return bytes;
 }

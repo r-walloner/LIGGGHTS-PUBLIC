@@ -58,6 +58,7 @@ class ComputeVolumeFractionAtom : public Compute {
 
  private:
   Compute *c_voronoi;
+  double *particle_volume;
   double *v_frac;
   int nmax;
 };

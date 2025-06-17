@@ -61,6 +61,8 @@ class ComputeFluidDragAtom : public Compute {
   Compute *c_vol_frac;
   int drag_law;
   double **f_drag;
+  double **expl_momentum;
+  double *impl_momentum;
   int nmax;
 };
 

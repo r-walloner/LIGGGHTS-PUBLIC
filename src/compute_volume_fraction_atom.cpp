@@ -57,6 +57,7 @@ ComputeVolumeFractionAtom::ComputeVolumeFractionAtom(LAMMPS *lmp, int &iarg, int
 
   c_voronoi = NULL;
 
+  particle_volume = NULL;
   v_frac = NULL;
   nmax = 0;
 }
@@ -65,6 +66,7 @@ ComputeVolumeFractionAtom::ComputeVolumeFractionAtom(LAMMPS *lmp, int &iarg, int
 
 ComputeVolumeFractionAtom::~ComputeVolumeFractionAtom()
 {
+  memory->destroy(particle_volume);
   memory->destroy(v_frac);
 }
 
@@ -83,14 +85,6 @@ void ComputeVolumeFractionAtom::compute_peratom()
 {
   invoked_peratom = update->ntimestep;
 
-  // Assume that all particles have the same radius
-  const double radius = atom->radius[0];
-  for (int i = 1; i < atom->nlocal; i++) {
-    assert(atom->radius[i] == radius && "All particles must have the same radius");
-  }
-  // Compute particle volume
-  const double particle_volume = (4.0 / 3.0) * M_PI * pow(radius, 3);
-
   // Access per-atom voronoi cell volume from compute
   if (!(c_voronoi->invoked_flag & INVOKED_PERATOM)) {
     c_voronoi->compute_peratom();
@@ -102,9 +96,11 @@ void ComputeVolumeFractionAtom::compute_peratom()
 
   // grow data array if necessary
   if (atom->nlocal > nmax) {
+    memory->destroy(particle_volume);
     memory->destroy(v_frac);
     nmax = atom->nlocal;
-    memory->create(v_frac, nmax, "compute:volume_fraction/atom");
+    memory->create(particle_volume, nmax, "compute:volume_fraction/atom:particle_volume");
+    memory->create(v_frac, nmax, "compute:volume_fraction/atom:v_frac");
     vector_atom = v_frac;
   }
 
@@ -115,16 +111,18 @@ void ComputeVolumeFractionAtom::compute_peratom()
       continue;
     }
 
+    particle_volume[i] = (4.0 / 3.0) * M_PI * pow(atom->radius[i], 3);
+
     // Volume fraction = particle volume / voronoi cell volume
-    v_frac[i] = particle_volume / voro_tess[i][0];
+    v_frac[i] = particle_volume[i] / voro_tess[i][0];
     
     assert(v_frac[i] >= 0.0 && "Particle volume fraction is negative");
     assert(v_frac[i] <= 1.0 && "Particle volume fraction is greater than 1.0");
-
-    // Write volumes to precice
-    // TODO move this to a separate fix or compute
-    precicec_writeAndMapData("Fluid-Mesh", "Alpha", 1, atom->x[i], &particle_volume);
   }
+  
+  // Write volumes to precice
+  // TODO move this to a separate fix or compute
+  precicec_writeAndMapData("Fluid-Mesh", "Alpha", atom->nlocal, *atom->x, v_frac);
 }
 
 /* ----------------------------------------------------------------------
@@ -133,6 +131,6 @@ void ComputeVolumeFractionAtom::compute_peratom()
 
 double ComputeVolumeFractionAtom::memory_usage()
 {
-  double bytes = nmax * sizeof(double);
+  double bytes = 2 * nmax * sizeof(double);
   return bytes;
 }
