@@ -62,6 +62,8 @@
 #include "variable.h"
 #include "input.h"
 
+#include "precice/preciceC.h"
+
 #include <vector>
 
 using namespace LAMMPS_NS;
@@ -166,6 +168,8 @@ void ComputeVoronoi::init()
 
 void ComputeVoronoi::compute_peratom()
 {
+  precicec_startProfilingSection("solver.advance.voronoi");
+
   int i, j;
   const double e = 0.01;
 
@@ -300,6 +304,8 @@ void ComputeVoronoi::compute_peratom()
       processCell(c,i);
     } while (cl.inc());
   }
+
+  precicec_stopLastProfilingSection();
 }
 
 /* ----------------------------------------------------------------------

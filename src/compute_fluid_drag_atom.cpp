@@ -113,6 +113,8 @@ void ComputeFluidDragAtom::init()
 
 void ComputeFluidDragAtom::compute_peratom()
 {
+  precicec_startProfilingSection("solver.advance.drag");
+
   invoked_peratom = update->ntimestep;
 
   // grow data array if necessary
@@ -255,6 +257,8 @@ void ComputeFluidDragAtom::compute_peratom()
   }
 
   free(v_rel);
+
+  precicec_stopLastProfilingSection();
 }
 
 /* ----------------------------------------------------------------------

@@ -83,6 +83,8 @@ void ComputeVolumeFractionAtom::init() {
 
 void ComputeVolumeFractionAtom::compute_peratom()
 {
+  precicec_startProfilingSection("solver.advance.volume_fraction");
+
   invoked_peratom = update->ntimestep;
 
   // Access per-atom voronoi cell volume from compute
@@ -123,6 +125,8 @@ void ComputeVolumeFractionAtom::compute_peratom()
   // Write volumes to precice
   // TODO move this to a separate fix or compute
   precicec_writeAndMapData("Fluid-Mesh", "Alpha", atom->nlocal, *atom->x, v_frac);
+
+  precicec_stopLastProfilingSection();
 }
 
 /* ----------------------------------------------------------------------
