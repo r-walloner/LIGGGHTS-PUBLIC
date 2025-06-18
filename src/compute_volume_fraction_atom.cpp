@@ -83,7 +83,7 @@ void ComputeVolumeFractionAtom::init() {
 
 void ComputeVolumeFractionAtom::compute_peratom()
 {
-  precicec_startProfilingSection("solver.advance.volume_fraction");
+  // precicec_startProfilingSection("solver.advance.volume_fraction");
 
   invoked_peratom = update->ntimestep;
 
@@ -126,7 +126,7 @@ void ComputeVolumeFractionAtom::compute_peratom()
   // TODO move this to a separate fix or compute
   precicec_writeAndMapData("Fluid-Mesh", "Alpha", atom->nlocal, *atom->x, v_frac);
 
-  precicec_stopLastProfilingSection();
+  // precicec_stopLastProfilingSection();
 }
 
 /* ----------------------------------------------------------------------

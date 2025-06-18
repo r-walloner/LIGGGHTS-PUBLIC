@@ -92,7 +92,7 @@ void PreciceReadAtom::init() {}
 
 void PreciceReadAtom::compute_peratom()
 {
-  precicec_startProfilingSection("adapter.read");
+  // precicec_startProfilingSection("adapter.read");
 
   invoked_peratom = update->ntimestep;
 
@@ -116,7 +116,7 @@ void PreciceReadAtom::compute_peratom()
     if (!(atom->mask[i] & groupbit))
       vectorZeroizeN(data[i], size_peratom_cols);
 
-  precicec_stopLastProfilingSection();
+  // precicec_stopLastProfilingSection();
 }
 
 /* ----------------------------------------------------------------------

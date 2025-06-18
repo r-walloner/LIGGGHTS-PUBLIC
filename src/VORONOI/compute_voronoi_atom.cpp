@@ -168,7 +168,7 @@ void ComputeVoronoi::init()
 
 void ComputeVoronoi::compute_peratom()
 {
-  precicec_startProfilingSection("solver.advance.voronoi");
+  // precicec_startProfilingSection("solver.advance.voronoi");
 
   int i, j;
   const double e = 0.01;
@@ -305,7 +305,7 @@ void ComputeVoronoi::compute_peratom()
     } while (cl.inc());
   }
 
-  precicec_stopLastProfilingSection();
+  // precicec_stopLastProfilingSection();
 }
 
 /* ----------------------------------------------------------------------
