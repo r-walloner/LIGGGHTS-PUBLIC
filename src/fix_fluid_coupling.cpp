@@ -264,7 +264,7 @@ void FixFluidCoupling::compute_drag()
 
     // volume fractions
     volfrac_p = volfrac[i];
-    volfrac_f = volfrac_f;
+    volfrac_f = 1 - volfrac[i];
 
     if (drag_law == DRAG_STOKES)
     {
