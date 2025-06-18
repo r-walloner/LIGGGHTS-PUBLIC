@@ -69,6 +69,7 @@ enum
 FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
     : Fix(lmp, narg, arg)
 {
+  nmax = 0;
   v_fluid = NULL;
   volume = NULL;
   volfrac = NULL;
@@ -76,32 +77,35 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
   expl_momentum = NULL;
   impl_momentum = NULL;
 
-  array_flag = 1;
+  peratom_flag = 1;
+  peratom_freq = 1;
+  size_peratom_cols = 12;
+  array_atom = NULL;
 
   // Parse arguments
-  if (narg != 5)
+  if (narg != 7)
     error->all(FLERR, "Illegal fix fluid_coupling command");
 
   drag_law = -1;
-  if (strcmp(arg[1], "stokes") == 0)
+  if (strcmp(arg[3], "stokes") == 0)
     drag_law = DRAG_STOKES;
-  else if (strcmp(arg[1], "gidaspow") == 0)
+  else if (strcmp(arg[3], "gidaspow") == 0)
     drag_law = DRAG_GIDASPOW;
-  else if (strcmp(arg[1], "koch_hill") == 0)
+  else if (strcmp(arg[3], "koch_hill") == 0)
     drag_law = DRAG_KOCH_HILL;
   if (drag_law == -1)
     error->all(FLERR, "Illegal fluid drag law specified");
 
   coupling_type = -1;
-  if (strcmp(arg[2], "momentum_semi_implicit") == 0)
+  if (strcmp(arg[4], "momentum_semi_implicit") == 0)
     coupling_type = COUPLING_MOMENTUM_SEMI_IMPLICIT;
-  else if (strcmp(arg[2], "force") == 0)
+  else if (strcmp(arg[4], "force") == 0)
     coupling_type = COUPLING_FORCE;
   if (coupling_type == -1)
     error->all(FLERR, "Illegal coupling type specified");
 
-  rho_fluid = force->numeric(FLERR, arg[3]);
-  mu_fluid = force->numeric(FLERR, arg[4]);
+  rho_fluid = force->numeric(FLERR, arg[5]);
+  mu_fluid = force->numeric(FLERR, arg[6]);
   if (rho_fluid <= 0.0)
     error->all(FLERR, "Fluid density must be positive");
   if (mu_fluid <= 0.0)
@@ -112,6 +116,7 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
 
 FixFluidCoupling::~FixFluidCoupling()
 {
+  memory->destroy(array_atom);
   memory->destroy(v_fluid);
   memory->destroy(volume);
   memory->destroy(volfrac);
@@ -152,9 +157,13 @@ void FixFluidCoupling::setup(int vflag)
 
 void FixFluidCoupling::post_force(int vflag)
 {
+  if (atom->nlocal > nmax)
+    grow_arrays(atom->nlocal);
+
   read_fluid_velocity(0);
   compute_volume_fraction();
   compute_drag();
+  compute_array_atom();
 }
 
 /* ----------------------------------------------------------------------
@@ -163,9 +172,13 @@ void FixFluidCoupling::post_force(int vflag)
 
 void FixFluidCoupling::final_integrate()
 {
+  if (atom->nlocal > nmax)
+    grow_arrays(atom->nlocal);
+
   read_fluid_velocity(update->dt);
   compute_volume_fraction();
   compute_drag();
+  compute_array_atom();
   write_particle_force();
 }
 
@@ -336,14 +349,17 @@ void FixFluidCoupling::compute_drag()
    allocate local atom-based arrays
 ------------------------------------------------------------------------- */
 
-void FixFluidCoupling::grow_arrays(int nmax)
+void FixFluidCoupling::grow_arrays(int nmax_new)
 {
-  memory->grow(v_fluid, nmax, 3, "FixFluidCoupling:v_fluid");
-  memory->grow(volume, nmax, "FixFluidCoupling:volume");
-  memory->grow(volfrac, nmax, "FixFluidCoupling:volfrac");
-  memory->grow(f_drag, nmax, 3, "FixFluidCoupling:f_drag");
-  memory->grow(expl_momentum, nmax, 3, "FixFluidCoupling:expl_momentum");
-  memory->grow(impl_momentum, nmax, "FixFluidCoupling:impl_momentum");
+  memory->destroy(array_atom);
+  memory->create(array_atom, nmax_new, size_peratom_cols, "FixFluidCoupling:array_atom");
+  memory->grow(v_fluid, nmax_new, 3, "FixFluidCoupling:v_fluid");
+  memory->grow(volume, nmax_new, "FixFluidCoupling:volume");
+  memory->grow(volfrac, nmax_new, "FixFluidCoupling:volfrac");
+  memory->grow(f_drag, nmax_new, 3, "FixFluidCoupling:f_drag");
+  memory->grow(expl_momentum, nmax_new, 3, "FixFluidCoupling:expl_momentum");
+  memory->grow(impl_momentum, nmax_new, "FixFluidCoupling:impl_momentum");
+  nmax = nmax_new;
 }
 
 /* ----------------------------------------------------------------------
@@ -352,20 +368,32 @@ void FixFluidCoupling::grow_arrays(int nmax)
 
 double FixFluidCoupling::compute_array(int i, int j)
 {
-  if (j == 0) return v_fluid[i][0];
-  else if (j == 1) return v_fluid[i][1];
-  else if (j == 2) return v_fluid[i][2];
-  else if (j == 3) return volume[i];
-  else if (j == 4) return volfrac[i];
-  else if (j == 5) return f_drag[i][0];
-  else if (j == 6) return f_drag[i][1];
-  else if (j == 7) return f_drag[i][2];
-  else if (j == 8) return expl_momentum[i][0];
-  else if (j == 9) return expl_momentum[i][1];
-  else if (j == 10) return expl_momentum[i][2];
-  else if (j == 11) return impl_momentum[i];
+  if (j == 1) return v_fluid[i][0];
+  else if (j == 2) return v_fluid[i][1];
+  else if (j == 3) return v_fluid[i][2];
+  else if (j == 4) return volume[i];
+  else if (j == 5) return volfrac[i];
+  else if (j == 6) return f_drag[i][0];
+  else if (j == 7) return f_drag[i][1];
+  else if (j == 8) return f_drag[i][2];
+  else if (j == 9) return expl_momentum[i][0];
+  else if (j == 10) return expl_momentum[i][1];
+  else if (j == 11) return expl_momentum[i][2];
+  else if (j == 12) return impl_momentum[i];
   else
     error->all(FLERR, "Invalid column index in FixFluidCoupling::compute_array");
+  return 0.0; // unreachable, but avoids compiler warning
+}
+
+/* ----------------------------------------------------------------------
+   prepare array_atom for output to file
+------------------------------------------------------------------------- */
+
+void FixFluidCoupling::compute_array_atom()
+{
+  for (int i = 0; i < nmax; i++)
+    for (int j = 0; j < size_peratom_cols; j++)
+      array_atom[i][j] = compute_array(i, j + 1);
 }
 
 /* ----------------------------------------------------------------------
@@ -414,6 +442,6 @@ void FixFluidCoupling::copy_arrays(int i, int j, int delflag)
 
 double FixFluidCoupling::memory_usage()
 {
-  double bytes = 12 * atom->nmax * sizeof(double);
+  double bytes = (12 + size_peratom_cols) * atom->nmax * sizeof(double);
   return bytes;
 }

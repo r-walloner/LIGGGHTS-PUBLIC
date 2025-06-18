@@ -65,6 +65,7 @@ class FixFluidCoupling : public Fix {
   void compute_drag();
 
   double compute_array(int,int);
+  void compute_array_atom();
   void grow_arrays(int);
   void set_arrays(int);
   void copy_arrays(int, int,int);
@@ -79,7 +80,8 @@ class FixFluidCoupling : public Fix {
 
   Compute * c_voronoi;
 
-  double ** v_fluid;
+  double nmax;
+  double **v_fluid;
   double *volume;
   double *volfrac;
   double **f_drag;
