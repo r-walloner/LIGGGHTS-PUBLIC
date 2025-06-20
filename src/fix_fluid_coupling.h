@@ -62,7 +62,7 @@ class FixFluidCoupling : public Fix {
   void read_fluid_velocity(double);
   void write_particle_force();
   void compute_volume_fraction();
-  void compute_drag();
+  void compute_force();
 
   double compute_array(int,int);
   void compute_array_atom();
@@ -74,11 +74,13 @@ class FixFluidCoupling : public Fix {
  private:
   int drag_law;
   int coupling_type;
+  int buoyancy_flag;
 
   double rho_fluid;
   double mu_fluid;
+  double *gravity;
 
-  Compute * c_voronoi;
+  Compute *c_voronoi;
 
   double nmax;
   double **v_fluid;
@@ -87,6 +89,8 @@ class FixFluidCoupling : public Fix {
   double *drag_coeff;
   double *reynolds;
   double **f_drag;
+  double **f_buoyancy;
+  double **f_total;
   double **expl_momentum;
   double *impl_momentum;
 };
