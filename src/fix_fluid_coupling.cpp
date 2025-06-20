@@ -404,7 +404,7 @@ void FixFluidCoupling::compute_force()
     for (int d = 0; d < 3; d++)
     {
       f_buoyancy[i][d] = buoyancy_flag
-                             ? volume[i] * rho_fluid * -gravity[d]
+                             ? volume[i] * rho_fluid * gravity[d]
                              : 0.0;
 
       f_total[i][d] = f_drag[i][d] + f_buoyancy[i][d];
