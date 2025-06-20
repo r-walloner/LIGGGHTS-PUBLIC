@@ -131,6 +131,7 @@ int FixFluidCoupling::setmask()
 {
   int mask = 0;
   mask |= POST_FORCE;
+  mask |= FINAL_INTEGRATE;
   return mask;
 }
 
