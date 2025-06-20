@@ -56,6 +56,7 @@ enum
   DRAG_STOKES,
   DRAG_GIDASPOW,
   DRAG_KOCH_HILL,
+  DRAG_ZHAO_SHAN,
 };
 
 enum
@@ -95,6 +96,8 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
     drag_law = DRAG_GIDASPOW;
   else if (strcmp(arg[3], "koch_hill") == 0)
     drag_law = DRAG_KOCH_HILL;
+  else if (strcmp(arg[3], "zhao_shan") == 0)
+    drag_law = DRAG_ZHAO_SHAN;
   if (drag_law == -1)
     error->all(FLERR, "Illegal fluid drag law specified");
 
@@ -272,7 +275,7 @@ void FixFluidCoupling::compute_drag()
 {
   double *v_rel = (double *)malloc(3 * sizeof(double));
   double mag_v_rel;
-  double beta, drag_coeff, reynolds, F_0, F_3, diameter, volfrac_p, volfrac_f;
+  double beta, drag_coeff, reynolds, F_0, F_3, X, diameter, volfrac_p, volfrac_f;
 
   for (int i = 0; i < atom->nlocal; i++)
   {
@@ -296,6 +299,28 @@ void FixFluidCoupling::compute_drag()
         f_drag[i][d] = 3 * M_PI * diameter *
                        mu_fluid * volfrac_f * v_rel[d];
       // note: this does not support semi-implicit momentum coupling yet
+    }
+
+    else if (drag_law == DRAG_ZHAO_SHAN)
+    {
+      reynolds = atom->density[i] * diameter * mag_v_rel / mu_fluid;
+
+      drag_coeff = .2924 * pow(9.06 / sqrt(reynolds) + 1, 2);
+
+      X = 3.7 - 0.65 * exp(-0.5 * pow(1.5 - log(reynolds), 2));
+
+      for (int d = 0; d < 3; d++)
+        f_drag[i][d] = .125 * atom->density[i] * M_PI * pow(diameter, 2) *
+                       drag_coeff * pow(volfrac_f, -(X + 1)) * v_rel[d] * mag_v_rel;
+
+      if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
+      {
+        // TODO this is not working. Why?
+        impl_momentum[i] = .125 * atom->density[i] * M_PI * pow(diameter, 2) *
+                           drag_coeff * pow(volfrac_f, -(X + 1)) * mag_v_rel;
+        for (int d = 0; d < 3; d++)
+          expl_momentum[i][d] = impl_momentum[i] * atom->v[i][d];
+      }
     }
 
     else if (drag_law == DRAG_GIDASPOW || drag_law == DRAG_KOCH_HILL)
