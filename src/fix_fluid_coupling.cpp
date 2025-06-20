@@ -190,13 +190,9 @@ void FixFluidCoupling::post_force(int vflag)
 
 void FixFluidCoupling::final_integrate()
 {
-  if (atom->nlocal > nmax)
-    grow_arrays(atom->nlocal);
-
   read_fluid_velocity(update->dt);
   compute_volume_fraction();
   compute_drag();
-  compute_array_atom();
   write_particle_force();
 }
 
