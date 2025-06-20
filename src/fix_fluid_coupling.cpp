@@ -303,7 +303,7 @@ void FixFluidCoupling::compute_drag()
 
     else if (drag_law == DRAG_ZHAO_SHAN)
     {
-      reynolds[i] = atom->density[i] * diameter * mag_v_rel / mu_fluid;
+      reynolds[i] = rho_fluid * diameter * mag_v_rel / mu_fluid;
 
       if (reynolds[i] == 0)
         drag_coeff[i] = 0;
