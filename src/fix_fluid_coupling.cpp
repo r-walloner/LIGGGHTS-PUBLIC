@@ -64,7 +64,9 @@ enum
   COUPLING_FORCE,
 };
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   construct fluid_coupling fix and parse arguments from input script
+------------------------------------------------------------------------- */
 
 FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
     : Fix(lmp, narg, arg)
@@ -112,7 +114,9 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
     error->all(FLERR, "Fluid viscosity must be positive");
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+    destruct fluid_coupling fix and free allocated memory
+------------------------------------------------------------------------- */
 
 FixFluidCoupling::~FixFluidCoupling()
 {
@@ -125,7 +129,9 @@ FixFluidCoupling::~FixFluidCoupling()
   memory->destroy(impl_momentum);
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   determines when the fix is called during the timestep
+------------------------------------------------------------------------- */
 
 int FixFluidCoupling::setmask()
 {
@@ -135,7 +141,9 @@ int FixFluidCoupling::setmask()
   return mask;
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   initialization before a run
+------------------------------------------------------------------------- */
 
 void FixFluidCoupling::init()
 {
@@ -145,7 +153,9 @@ void FixFluidCoupling::init()
     error->all(FLERR, "Cannot find voronoi/atom compute");
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   called immediately before the 1st timestep and after forces are computed
+------------------------------------------------------------------------- */
 
 void FixFluidCoupling::setup(int vflag)
 {
@@ -153,7 +163,7 @@ void FixFluidCoupling::setup(int vflag)
 }
 
 /* ----------------------------------------------------------------------
-   alled after pair & molecular forces are computed and communicated
+   called after pair & molecular forces are computed and communicated
 ------------------------------------------------------------------------- */
 
 void FixFluidCoupling::post_force(int vflag)
