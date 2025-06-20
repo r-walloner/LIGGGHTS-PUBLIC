@@ -76,13 +76,15 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
   v_fluid = NULL;
   volume = NULL;
   volfrac = NULL;
+  drag_coeff = NULL;
+  reynolds = NULL;
   f_drag = NULL;
   expl_momentum = NULL;
   impl_momentum = NULL;
 
   peratom_flag = 1;
   peratom_freq = 1;
-  size_peratom_cols = 12;
+  size_peratom_cols = 18;
   array_atom = NULL;
 
   // Parse arguments
@@ -127,6 +129,8 @@ FixFluidCoupling::~FixFluidCoupling()
   memory->destroy(v_fluid);
   memory->destroy(volume);
   memory->destroy(volfrac);
+  memory->destroy(drag_coeff);
+  memory->destroy(reynolds);
   memory->destroy(f_drag);
   memory->destroy(expl_momentum);
   memory->destroy(impl_momentum);
@@ -275,7 +279,7 @@ void FixFluidCoupling::compute_drag()
 {
   double *v_rel = (double *)malloc(3 * sizeof(double));
   double mag_v_rel;
-  double beta, drag_coeff, reynolds, F_0, F_3, X, diameter, volfrac_p, volfrac_f;
+  double beta, F_0, F_3, X, diameter, volfrac_p, volfrac_f;
 
   for (int i = 0; i < atom->nlocal; i++)
   {
@@ -303,24 +307,24 @@ void FixFluidCoupling::compute_drag()
 
     else if (drag_law == DRAG_ZHAO_SHAN)
     {
-      reynolds = atom->density[i] * diameter * mag_v_rel / mu_fluid;
+      reynolds[i] = atom->density[i] * diameter * mag_v_rel / mu_fluid;
 
-      if (reynolds == 0)
-        drag_coeff = 0;
+      if (reynolds[i] == 0)
+        drag_coeff[i] = 0;
       else
-        drag_coeff = .2924 * pow(9.06 / sqrt(reynolds) + 1, 2);
+        drag_coeff[i] = .2924 * pow(9.06 / sqrt(reynolds[i]) + 1, 2);
 
-      X = 3.7 - 0.65 * exp(-0.5 * pow(1.5 - log(reynolds), 2));
+      X = 3.7 - 0.65 * exp(-0.5 * pow(1.5 - log(reynolds[i]), 2));
 
       for (int d = 0; d < 3; d++)
         f_drag[i][d] = .125 * atom->density[i] * M_PI * pow(diameter, 2) *
-                       drag_coeff * pow(volfrac_f, -(X + 1)) * v_rel[d] * mag_v_rel;
+                       drag_coeff[i] * pow(volfrac_f, -(X + 1)) * v_rel[d] * mag_v_rel;
 
       if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
       {
         // TODO this is not working. Why?
         impl_momentum[i] = .125 * atom->density[i] * M_PI * pow(diameter, 2) *
-                           drag_coeff * pow(volfrac_f, -(X + 1)) * mag_v_rel;
+                           drag_coeff[i] * pow(volfrac_f, -(X + 1)) * mag_v_rel;
         for (int d = 0; d < 3; d++)
           expl_momentum[i][d] = impl_momentum[i] * atom->v[i][d];
       }
@@ -328,18 +332,18 @@ void FixFluidCoupling::compute_drag()
 
     else if (drag_law == DRAG_GIDASPOW || drag_law == DRAG_KOCH_HILL)
     {
-      reynolds = volfrac_f * rho_fluid * mag_v_rel * diameter /
+      reynolds[i] = volfrac_f * rho_fluid * mag_v_rel * diameter /
                  mu_fluid;
 
       if (drag_law == DRAG_GIDASPOW)
       {
         // drag coefficient
-        if (reynolds == 0)
-          drag_coeff = 0; // drag does not matter if ralative velocity is zero
-        else if (reynolds < 1000)
-          drag_coeff = 24.0 * (1.0 + 0.15 * pow(reynolds, 0.687)) / reynolds;
+        if (reynolds[i] == 0)
+          drag_coeff[i] = 0; // drag does not matter if ralative velocity is zero
+        else if (reynolds[i] < 1000)
+          drag_coeff[i] = 24.0 * (1.0 + 0.15 * pow(reynolds[i], 0.687)) / reynolds[i];
         else
-          drag_coeff = 0.44;
+          drag_coeff[i] = 0.44;
 
         // inter-phase momentum exchange coefficient beta
         if (volfrac_f < 0.8)
@@ -347,7 +351,7 @@ void FixFluidCoupling::compute_drag()
                      (volfrac_f * pow(diameter, 2)) +
                  1.75 * volfrac_p * rho_fluid * mag_v_rel / diameter;
         else
-          beta = 3.0 * drag_coeff * volfrac_f * pow(volfrac_p, 2) *
+          beta = 3.0 * drag_coeff[i] * volfrac_f * pow(volfrac_p, 2) *
                  rho_fluid * mag_v_rel * pow(volfrac_f, -2.65) /
                  (2.0 * diameter);
       }
@@ -363,7 +367,7 @@ void FixFluidCoupling::compute_drag()
         F_3 = 0.0673 + 0.0212 * volfrac_p + (0.0232 / pow(volfrac_f, 5));
 
         beta = 18 * mu_fluid * pow(volfrac_f, 2) * volfrac_p *
-               (F_0 + 0.5 * F_3 * reynolds) /
+               (F_0 + 0.5 * F_3 * reynolds[i]) /
                pow(diameter, 2);
       }
 
@@ -399,6 +403,8 @@ void FixFluidCoupling::grow_arrays(int nmax_new)
   memory->grow(v_fluid, nmax_new, 3, "FixFluidCoupling:v_fluid");
   memory->grow(volume, nmax_new, "FixFluidCoupling:volume");
   memory->grow(volfrac, nmax_new, "FixFluidCoupling:volfrac");
+  memory->grow(drag_coeff, nmax_new, "FixFluidCoupling:drag_coeff");
+  memory->grow(reynolds, nmax_new, "FixFluidCoupling:reynolds");
   memory->grow(f_drag, nmax_new, 3, "FixFluidCoupling:f_drag");
   memory->grow(expl_momentum, nmax_new, 3, "FixFluidCoupling:expl_momentum");
   memory->grow(impl_momentum, nmax_new, "FixFluidCoupling:impl_momentum");
@@ -423,6 +429,12 @@ double FixFluidCoupling::compute_array(int i, int j)
   else if (j == 10) return expl_momentum[i][1];
   else if (j == 11) return expl_momentum[i][2];
   else if (j == 12) return impl_momentum[i];
+  else if (j == 13) return drag_coeff[i];
+  else if (j == 14) return v_fluid[i][0] - atom->v[i][0];
+  else if (j == 15) return v_fluid[i][1] - atom->v[i][1];
+  else if (j == 16) return v_fluid[i][2] - atom->v[i][2];
+  else if (j == 17) return 1 - volfrac[i];
+  else if (j == 18) return reynolds[i];
   else
     error->all(FLERR, "Invalid column index in FixFluidCoupling::compute_array");
   return 0.0; // unreachable, but avoids compiler warning
@@ -450,6 +462,8 @@ void FixFluidCoupling::set_arrays(int i)
   v_fluid[i][2] = 0.0;
   volume[i] = 0.0;
   volfrac[i] = 0.0;
+  drag_coeff[i] = 0.0;
+  reynolds[i] = 0.0;
   f_drag[i][0] = 0.0;
   f_drag[i][1] = 0.0;
   f_drag[i][2] = 0.0;
@@ -470,6 +484,8 @@ void FixFluidCoupling::copy_arrays(int i, int j, int delflag)
   v_fluid[j][2] = v_fluid[i][2];
   volume[j] = volume[i];
   volfrac[j] = volfrac[i];
+  drag_coeff[j] = drag_coeff[i];
+  reynolds[j] = reynolds[i];
   f_drag[j][0] = f_drag[i][0];
   f_drag[j][1] = f_drag[i][1];
   f_drag[j][2] = f_drag[i][2];
@@ -485,6 +501,6 @@ void FixFluidCoupling::copy_arrays(int i, int j, int delflag)
 
 double FixFluidCoupling::memory_usage()
 {
-  double bytes = (12 + size_peratom_cols) * atom->nmax * sizeof(double);
+  double bytes = (14 + size_peratom_cols) * atom->nmax * sizeof(double);
   return bytes;
 }

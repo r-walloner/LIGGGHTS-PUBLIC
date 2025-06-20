@@ -84,6 +84,8 @@ class FixFluidCoupling : public Fix {
   double **v_fluid;
   double *volume;
   double *volfrac;
+  double *drag_coeff;
+  double *reynolds;
   double **f_drag;
   double **expl_momentum;
   double *impl_momentum;
