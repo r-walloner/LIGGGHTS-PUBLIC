@@ -379,6 +379,10 @@ void FixFluidCoupling::compute_drag()
           expl_momentum[i][d] = impl_momentum[i] * atom->v[i][d];
       }
     }
+
+    atom->f[i][0] += f_drag[i][0];
+    atom->f[i][1] += f_drag[i][1];
+    atom->f[i][2] += f_drag[i][2];
   }
 
   free(v_rel);
