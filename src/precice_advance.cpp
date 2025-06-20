@@ -109,8 +109,8 @@ void PreciceAdvance::command(int narg, char **arg)
   //   write_checkpoint();
 
   // set timestep
-  update->dt = precicec_getMaxTimeStepSize();
-  update->timestep_set = true;
+  // update->dt = precicec_getMaxTimeStepSize();
+  // update->timestep_set = true;
 
 }
 

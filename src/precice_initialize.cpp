@@ -100,6 +100,6 @@ void PreciceInitialize::command(int narg, char **arg)
   // }
 
   // set timestep
-  update->dt = precicec_getMaxTimeStepSize();
-  update->timestep_set = true;
+  // update->dt = precicec_getMaxTimeStepSize();
+  // update->timestep_set = true;
 }
