@@ -305,7 +305,10 @@ void FixFluidCoupling::compute_drag()
     {
       reynolds = atom->density[i] * diameter * mag_v_rel / mu_fluid;
 
-      drag_coeff = .2924 * pow(9.06 / sqrt(reynolds) + 1, 2);
+      if (reynolds == 0)
+        drag_coeff = 0;
+      else
+        drag_coeff = .2924 * pow(9.06 / sqrt(reynolds) + 1, 2);
 
       X = 3.7 - 0.65 * exp(-0.5 * pow(1.5 - log(reynolds), 2));
 
