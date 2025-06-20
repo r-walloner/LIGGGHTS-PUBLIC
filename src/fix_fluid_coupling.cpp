@@ -36,7 +36,7 @@
 ------------------------------------------------------------------------- */
 
 #include <cassert>
-#include <cmath>
+#include <math.h>
 #include <precice/preciceC.h>
 #include "fix_fluid_coupling.h"
 #include "atom.h"
