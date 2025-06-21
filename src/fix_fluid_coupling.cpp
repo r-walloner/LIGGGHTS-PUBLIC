@@ -416,13 +416,8 @@ void FixFluidCoupling::compute_force()
     // ---------------------------
     for (int d = 0; d < 3; d++)
     {
-      f_gravity[i][d] = gravity_flag
-                            ? volume[i] * atom->density[i] * gravity[d]
-                            : 0.0;
-
-      f_buoyancy[i][d] = buoyancy_flag
-                             ? volume[i] * rho_fluid * gravity[d]
-                             : 0.0;
+      f_gravity[i][d] = gravity_flag * volume[i] * atom->density[i] * gravity[d];
+      f_buoyancy[i][d] = buoyancy_flag * volume[i] * rho_fluid * gravity[d];
     }
 
     // apply forces to particle
