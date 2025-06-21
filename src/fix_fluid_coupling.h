@@ -92,7 +92,7 @@ class FixFluidCoupling : public Fix {
   double **f_drag;
   double **f_buoyancy;
   double **f_gravity;
-  double **f_total;
+  double **f_fluid_total;
   double **expl_momentum;
   double *impl_momentum;
 };

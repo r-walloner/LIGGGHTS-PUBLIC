@@ -82,7 +82,7 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
   f_drag = NULL;
   f_buoyancy = NULL;
   f_gravity = NULL;
-  f_total = NULL;
+  f_fluid_total = NULL;
   expl_momentum = NULL;
   impl_momentum = NULL;
 
@@ -143,7 +143,7 @@ FixFluidCoupling::~FixFluidCoupling()
   memory->destroy(f_drag);
   memory->destroy(f_buoyancy);
   memory->destroy(f_gravity);
-  memory->destroy(f_total);
+  memory->destroy(f_fluid_total);
   memory->destroy(expl_momentum);
   memory->destroy(impl_momentum);
   memory->destroy(gravity);
@@ -257,7 +257,7 @@ void FixFluidCoupling::write_particle_force()
   {
     precicec_writeAndMapData(
         "Fluid-Mesh", "DragForce",
-        atom->nlocal, *atom->x, *f_total);
+        atom->nlocal, *atom->x, *f_fluid_total);
     precicec_writeAndMapData(
         "Fluid-Mesh", "Alpha",
         atom->nlocal, *atom->x, volume);
@@ -424,8 +424,8 @@ void FixFluidCoupling::compute_force()
     // ------------------------
     for (int d = 0; d < 3; d++)
     {
-      f_total[i][d] = f_drag[i][d] + f_buoyancy[i][d] + f_gravity[i][d];
-      atom->f[i][d] += f_total[i][d];
+      f_fluid_total[i][d] = f_drag[i][d] + f_buoyancy[i][d];
+      atom->f[i][d] += f_fluid_total[i][d] + f_gravity[i][d];
     }
   }
 
@@ -448,7 +448,7 @@ void FixFluidCoupling::grow_arrays(int nmax_new)
   memory->grow(f_drag, nmax_new, 3, "FixFluidCoupling:f_drag");
   memory->grow(f_buoyancy, nmax_new, 3, "FixFluidCoupling:f_buoyancy");
   memory->grow(f_gravity, nmax_new, 3, "FixFluidCoupling:f_gravity");
-  memory->grow(f_total, nmax_new, 3, "FixFluidCoupling:f_total");
+  memory->grow(f_fluid_total, nmax_new, 3, "FixFluidCoupling:f_fluid_total");
   memory->grow(expl_momentum, nmax_new, 3, "FixFluidCoupling:expl_momentum");
   memory->grow(impl_momentum, nmax_new, "FixFluidCoupling:impl_momentum");
   nmax = nmax_new;
@@ -481,9 +481,9 @@ double FixFluidCoupling::compute_array(int i, int j)
   else if (j == 19) return f_buoyancy[i][0];
   else if (j == 20) return f_buoyancy[i][1];
   else if (j == 21) return f_buoyancy[i][2];
-  else if (j == 22) return f_total[i][0];
-  else if (j == 23) return f_total[i][1];
-  else if (j == 24) return f_total[i][2];
+  else if (j == 22) return f_fluid_total[i][0];
+  else if (j == 23) return f_fluid_total[i][1];
+  else if (j == 24) return f_fluid_total[i][2];
   else if (j == 25) return f_gravity[i][0];
   else if (j == 26) return f_gravity[i][1];
   else if (j == 27) return f_gravity[i][2];
@@ -525,9 +525,9 @@ void FixFluidCoupling::set_arrays(int i)
   f_gravity[i][0] = 0.0;
   f_gravity[i][1] = 0.0;
   f_gravity[i][2] = 0.0;
-  f_total[i][0] = 0.0;
-  f_total[i][1] = 0.0;
-  f_total[i][2] = 0.0;
+  f_fluid_total[i][0] = 0.0;
+  f_fluid_total[i][1] = 0.0;
+  f_fluid_total[i][2] = 0.0;
   expl_momentum[i][0] = 0.0;
   expl_momentum[i][1] = 0.0;
   expl_momentum[i][2] = 0.0;
@@ -556,9 +556,9 @@ void FixFluidCoupling::copy_arrays(int i, int j, int delflag)
   f_gravity[j][0] = f_gravity[i][0];
   f_gravity[j][1] = f_gravity[i][1];
   f_gravity[j][2] = f_gravity[i][2];
-  f_total[j][0] = f_total[i][0];
-  f_total[j][1] = f_total[i][1];
-  f_total[j][2] = f_total[i][2];
+  f_fluid_total[j][0] = f_fluid_total[i][0];
+  f_fluid_total[j][1] = f_fluid_total[i][1];
+  f_fluid_total[j][2] = f_fluid_total[i][2];
   expl_momentum[j][0] = expl_momentum[i][0];
   expl_momentum[j][1] = expl_momentum[i][1];
   expl_momentum[j][2] = expl_momentum[i][2];
