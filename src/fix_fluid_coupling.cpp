@@ -202,6 +202,8 @@ void FixFluidCoupling::setup(int vflag)
 
 void FixFluidCoupling::post_force(int vflag)
 {
+  // TODO this only gets called after step 2 and onwards. why?
+  // can we use end_of_step() instead?
   if (atom->nlocal > nmax)
     grow_arrays(atom->nlocal);
 
