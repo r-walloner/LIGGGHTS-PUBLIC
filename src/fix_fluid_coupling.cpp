@@ -81,6 +81,7 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
   reynolds = NULL;
   f_drag = NULL;
   f_buoyancy = NULL;
+  f_gravity = NULL;
   f_total = NULL;
   expl_momentum = NULL;
   impl_momentum = NULL;
@@ -89,11 +90,11 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
 
   peratom_flag = 1;
   peratom_freq = 1;
-  size_peratom_cols = 24;
+  size_peratom_cols = 27;
   array_atom = NULL;
 
   // Parse arguments
-  if (narg != 8)
+  if (narg != 9)
     error->all(FLERR, "Illegal fix fluid_coupling command");
 
   drag_law = -1;
@@ -123,7 +124,8 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
   if (mu_fluid <= 0.0)
     error->all(FLERR, "Fluid viscosity must be positive");
 
-  buoyancy_flag = force->inumeric(FLERR, arg[7]);
+  gravity_flag = force->inumeric(FLERR, arg[7]);
+  buoyancy_flag = force->inumeric(FLERR, arg[8]);
 }
 
 /* ----------------------------------------------------------------------
@@ -140,6 +142,7 @@ FixFluidCoupling::~FixFluidCoupling()
   memory->destroy(reynolds);
   memory->destroy(f_drag);
   memory->destroy(f_buoyancy);
+  memory->destroy(f_gravity);
   memory->destroy(f_total);
   memory->destroy(expl_momentum);
   memory->destroy(impl_momentum);
@@ -169,10 +172,12 @@ void FixFluidCoupling::init()
   if (!c_voronoi)
     error->all(FLERR, "Cannot find voronoi/atom compute");
 
-  if (buoyancy_flag)
+  if (buoyancy_flag || gravity_flag)
   {
-    FixGravity *fx_gravity = (FixGravity *)modify->find_fix_style_strict("gravity", 0);
-    fx_gravity->get_gravity(gravity);
+    // TODO get gravity vector from input script
+    gravity[0] = 0.0;
+    gravity[1] = -9.81;
+    gravity[2] = 0.0;
   }
   else
   {
@@ -315,6 +320,9 @@ void FixFluidCoupling::compute_force()
     volfrac_p = volfrac[i];
     volfrac_f = 1 - volfrac[i];
 
+    // drag force (using different drag laws)
+    // --------------------------------------
+
     if (drag_law == DRAG_STOKES)
     {
       for (int d = 0; d < 3; d++)
@@ -401,13 +409,24 @@ void FixFluidCoupling::compute_force()
       }
     }
 
+    // gravity and buoyancy forces
+    // ---------------------------
     for (int d = 0; d < 3; d++)
     {
+      f_gravity[i][d] = gravity_flag
+                            ? volume[i] * atom->density[i] * gravity[d]
+                            : 0.0;
+
       f_buoyancy[i][d] = buoyancy_flag
                              ? volume[i] * rho_fluid * gravity[d]
                              : 0.0;
+    }
 
-      f_total[i][d] = f_drag[i][d] + f_buoyancy[i][d];
+    // apply forces to particle
+    // ------------------------
+    for (int d = 0; d < 3; d++)
+    {
+      f_total[i][d] = f_drag[i][d] + f_buoyancy[i][d] + f_gravity[i][d];
       atom->f[i][d] += f_total[i][d];
     }
   }
@@ -430,6 +449,7 @@ void FixFluidCoupling::grow_arrays(int nmax_new)
   memory->grow(reynolds, nmax_new, "FixFluidCoupling:reynolds");
   memory->grow(f_drag, nmax_new, 3, "FixFluidCoupling:f_drag");
   memory->grow(f_buoyancy, nmax_new, 3, "FixFluidCoupling:f_buoyancy");
+  memory->grow(f_gravity, nmax_new, 3, "FixFluidCoupling:f_gravity");
   memory->grow(f_total, nmax_new, 3, "FixFluidCoupling:f_total");
   memory->grow(expl_momentum, nmax_new, 3, "FixFluidCoupling:expl_momentum");
   memory->grow(impl_momentum, nmax_new, "FixFluidCoupling:impl_momentum");
@@ -466,6 +486,9 @@ double FixFluidCoupling::compute_array(int i, int j)
   else if (j == 22) return f_total[i][0];
   else if (j == 23) return f_total[i][1];
   else if (j == 24) return f_total[i][2];
+  else if (j == 25) return f_gravity[i][0];
+  else if (j == 26) return f_gravity[i][1];
+  else if (j == 27) return f_gravity[i][2];
   else
     error->all(FLERR, "Invalid column index in FixFluidCoupling::compute_array");
   return 0.0; // unreachable, but avoids compiler warning
@@ -501,6 +524,9 @@ void FixFluidCoupling::set_arrays(int i)
   f_buoyancy[i][0] = 0.0;
   f_buoyancy[i][1] = 0.0;
   f_buoyancy[i][2] = 0.0;
+  f_gravity[i][0] = 0.0;
+  f_gravity[i][1] = 0.0;
+  f_gravity[i][2] = 0.0;
   f_total[i][0] = 0.0;
   f_total[i][1] = 0.0;
   f_total[i][2] = 0.0;
@@ -529,6 +555,9 @@ void FixFluidCoupling::copy_arrays(int i, int j, int delflag)
   f_buoyancy[j][0] = f_buoyancy[i][0];
   f_buoyancy[j][1] = f_buoyancy[i][1];
   f_buoyancy[j][2] = f_buoyancy[i][2];
+  f_gravity[j][0] = f_gravity[i][0];
+  f_gravity[j][1] = f_gravity[i][1];
+  f_gravity[j][2] = f_gravity[i][2];
   f_total[j][0] = f_total[i][0];
   f_total[j][1] = f_total[i][1];
   f_total[j][2] = f_total[i][2];
@@ -544,6 +573,6 @@ void FixFluidCoupling::copy_arrays(int i, int j, int delflag)
 
 double FixFluidCoupling::memory_usage()
 {
-  double bytes = (20 + size_peratom_cols) * atom->nmax * sizeof(double);
+  double bytes = (23 + size_peratom_cols) * atom->nmax * sizeof(double);
   return bytes;
 }

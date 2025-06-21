@@ -74,6 +74,7 @@ class FixFluidCoupling : public Fix {
  private:
   int drag_law;
   int coupling_type;
+  int gravity_flag;
   int buoyancy_flag;
 
   double rho_fluid;
@@ -90,6 +91,7 @@ class FixFluidCoupling : public Fix {
   double *reynolds;
   double **f_drag;
   double **f_buoyancy;
+  double **f_gravity;
   double **f_total;
   double **expl_momentum;
   double *impl_momentum;
