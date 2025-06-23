@@ -63,6 +63,7 @@ class FixFluidCoupling : public Fix {
   void write_particle_force();
   void compute_volume_fraction();
   void compute_force();
+  void apply_force();
 
   double compute_array(int,int);
   void compute_array_atom();

@@ -210,6 +210,7 @@ void FixFluidCoupling::post_force(int vflag)
   read_fluid_velocity(0);
   compute_volume_fraction();
   compute_force();
+  apply_force();
   compute_array_atom();
 }
 
@@ -427,19 +428,27 @@ void FixFluidCoupling::compute_force()
       f_gravity[i][d] = gravity_flag * volume[i] * atom->density[i] * gravity[d];
       f_buoyancy[i][d] = buoyancy_flag * volume[i] * rho_fluid * -gravity[d];
     }
+  }
 
-    // apply forces to particle
-    // ------------------------
+  free(v_rel);
+
+  precicec_stopLastProfilingSection();
+}
+
+/* ----------------------------------------------------------------------
+   apply the computed forces to the particles
+------------------------------------------------------------------------- */
+
+void FixFluidCoupling::apply_force()
+{
+  for (int i = 0; i < atom->nlocal; i++)
+  {
     for (int d = 0; d < 3; d++)
     {
       f_fluid_total[i][d] = f_drag[i][d] + f_buoyancy[i][d];
       atom->f[i][d] += f_fluid_total[i][d] + f_gravity[i][d];
     }
   }
-
-  free(v_rel);
-
-  precicec_stopLastProfilingSection();
 }
 
 /* ----------------------------------------------------------------------
