@@ -270,6 +270,8 @@ void FixFluidCoupling::write_particle_force()
 
 void FixFluidCoupling::compute_volume_fraction()
 {
+  precicec_startProfilingSection("solver.advance.compute_volume_fraction");
+
   // Access per-atom voronoi cell volume from voronoi compute
   if (!(c_voronoi->invoked_flag & INVOKED_PERATOM))
   {
@@ -293,6 +295,8 @@ void FixFluidCoupling::compute_volume_fraction()
     assert(volfrac[i] >= 0.0 && "Particle volume fraction is negative");
     assert(volfrac[i] <= 1.0 && "Particle volume fraction exceeds 1.0");
   }
+
+  precicec_stopLastProfilingSection();
 }
 
 /* ----------------------------------------------------------------------
@@ -302,6 +306,8 @@ void FixFluidCoupling::compute_volume_fraction()
 
 void FixFluidCoupling::compute_force()
 {
+  precicec_startProfilingSection("solver.advance.compute_force");
+
   double *v_rel = (double *)malloc(3 * sizeof(double));
   double mag_v_rel;
   double beta, F_0, F_3, X, diameter, volfrac_p, volfrac_f;
@@ -430,6 +436,8 @@ void FixFluidCoupling::compute_force()
   }
 
   free(v_rel);
+
+  precicec_stopLastProfilingSection();
 }
 
 /* ----------------------------------------------------------------------
