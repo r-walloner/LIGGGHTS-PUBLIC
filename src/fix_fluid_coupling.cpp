@@ -257,7 +257,7 @@ void FixFluidCoupling::write_particle_force()
   {
     precicec_writeAndMapData(
         "Fluid-Mesh", "DragForce",
-        atom->nlocal, *atom->x, *f_fluid_total);
+        atom->nlocal, *atom->x, *f_drag);
     precicec_writeAndMapData(
         "Fluid-Mesh", "Alpha",
         atom->nlocal, *atom->x, volume);
