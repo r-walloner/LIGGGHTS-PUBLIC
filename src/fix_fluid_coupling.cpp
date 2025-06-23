@@ -348,8 +348,10 @@ void FixFluidCoupling::compute_force()
       else
         drag_coeff[i] = .2924 * pow(9.06 / sqrt(reynolds[i]) + 1, 2);
 
-      // TODO log10 or ln ?
-      X = 3.7 - 0.65 * exp(-0.5 * pow(1.5 - log10(reynolds[i]), 2));
+      if (reynolds[i] == 0)
+        X = 0; // drag does not matter if ralative velocity is zero
+      else
+        X = 3.7 - 0.65 * exp(-0.5 * pow(1.5 - log10(reynolds[i]), 2));
 
       for (int d = 0; d < 3; d++)
         f_drag[i][d] = .125 * rho_fluid * M_PI * pow(diameter, 2) *
