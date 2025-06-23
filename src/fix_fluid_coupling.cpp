@@ -352,12 +352,12 @@ void FixFluidCoupling::compute_force()
       X = 3.7 - 0.65 * exp(-0.5 * pow(1.5 - log10(reynolds[i]), 2));
 
       for (int d = 0; d < 3; d++)
-        f_drag[i][d] = .125 * atom->density[i] * M_PI * pow(diameter, 2) *
+        f_drag[i][d] = .125 * rho_fluid * M_PI * pow(diameter, 2) *
                        drag_coeff[i] * pow(volfrac_f, -(X + 1)) * v_rel[d] * mag_v_rel;
 
       if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
       {
-        impl_momentum[i] = .125 * atom->density[i] * M_PI * pow(diameter, 2) *
+        impl_momentum[i] = .125 * rho_fluid * M_PI * pow(diameter, 2) *
                            drag_coeff[i] * pow(volfrac_f, -(X + 1)) * mag_v_rel;
         for (int d = 0; d < 3; d++)
           expl_momentum[i][d] = impl_momentum[i] * atom->v[i][d];
