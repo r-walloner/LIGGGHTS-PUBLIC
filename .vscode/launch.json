@@ -80,10 +80,10 @@
             //"preLaunchTask": "Build"
         },
         {
-            "name": "spb",
+            "name": "fb",
             "type": "cppdbg",
             "request": "launch",
-            "cwd": "${workspaceFolder}/../ba-repo/single_spout_bed/particle-liggghts",
+            "cwd": "${workspaceFolder}/../ba-repo/fluidized_bed/runs/debug/particle-liggghts",
             "program": "${workspaceFolder}/build/liggghts",
             "args": [ "<", "in.liggghts" ],
             "stopAtEntry": false,
