@@ -188,15 +188,6 @@ void FixFluidCoupling::init()
 }
 
 /* ----------------------------------------------------------------------
-   called immediately before the 1st timestep and after forces are computed
-------------------------------------------------------------------------- */
-
-void FixFluidCoupling::setup(int vflag)
-{
-  post_force(vflag);
-}
-
-/* ----------------------------------------------------------------------
    called after pair & molecular forces are computed and communicated
 ------------------------------------------------------------------------- */
 

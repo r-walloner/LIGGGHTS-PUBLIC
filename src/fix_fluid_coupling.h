@@ -55,7 +55,6 @@ class FixFluidCoupling : public Fix {
   ~FixFluidCoupling();
   int setmask();
   void init();
-  void setup(int);
   void post_force(int);
   void final_integrate();
 
