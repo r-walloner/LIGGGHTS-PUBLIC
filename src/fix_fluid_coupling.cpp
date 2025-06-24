@@ -188,6 +188,19 @@ void FixFluidCoupling::init()
 }
 
 /* ----------------------------------------------------------------------
+   called immediately before the 1st timestep and after forces are computed
+------------------------------------------------------------------------- */
+
+void FixFluidCoupling::setup(int vflag)
+{
+  // The data we compute here is 0. But this is needed to prevent a segfault
+  // when dumping data to the output file in the very first timestep.
+  if (atom->nlocal > nmax)
+    grow_arrays(atom->nlocal);
+  compute_array_atom();
+}
+
+/* ----------------------------------------------------------------------
    called after pair & molecular forces are computed and communicated
 ------------------------------------------------------------------------- */
 
