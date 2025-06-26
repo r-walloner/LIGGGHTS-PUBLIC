@@ -450,7 +450,7 @@ void FixFluidCoupling::apply_force()
     for (int d = 0; d < 3; d++)
     {
       f_fluid_total[i][d] = f_drag[i][d] + f_buoyancy[i][d];
-      atom->f[i][d] += f_gravity[i][d];
+      atom->f[i][d] += f_fluid_total[i][d] + f_gravity[i][d];
     }
   }
 }
