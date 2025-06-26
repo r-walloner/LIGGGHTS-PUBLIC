@@ -397,6 +397,7 @@ void FixFluidCoupling::compute_force()
 
       else if (drag_law == DRAG_KOCH_HILL)
       {
+        // TODO this should probably be log10
         if (volfrac_p < 0.4)
           F_0 = (1 + 3 * sqrt(volfrac_p / 2) + 2.109 * volfrac_p * log(volfrac_p) + 16.14 * volfrac_p) /
                 (1 + 0.681 * volfrac_p - 8.48 * pow(volfrac_p, 2) + 8.16 * pow(volfrac_p, 3));
@@ -411,6 +412,7 @@ void FixFluidCoupling::compute_force()
       }
 
       // drag force
+      // TODO shouldn't this also be ... / (volfrac_p * volfrac_f) ?
       for (int d = 0; d < 3; d++)
         f_drag[i][d] = beta * volume[i] * v_rel[d] / volfrac_p;
 
