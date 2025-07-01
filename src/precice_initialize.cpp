@@ -82,6 +82,20 @@ void PreciceInitialize::command(int narg, char **arg)
       domain->sublo[0] - largest_atom, domain->subhi[0] + largest_atom,
       domain->sublo[1] - largest_atom, domain->subhi[1] + largest_atom,
       domain->sublo[2] - largest_atom, domain->subhi[2] + largest_atom};
+
+  // log bounding box
+  char message[256];
+  snprintf(message, sizeof(message),
+          "Rank %d: Subdomain bounds are [%g, %g] x [%g, %g] x [%g, %g]. Bounding box set to [%g, %g] x [%g, %g] x [%g, %g]",
+          mpi_rank,
+          domain->sublo[0], domain->subhi[0],
+          domain->sublo[1], domain->subhi[1],
+          domain->sublo[2], domain->subhi[2],
+          mesh_access_region[0], mesh_access_region[1],
+          mesh_access_region[2], mesh_access_region[3],
+          mesh_access_region[4], mesh_access_region[5]);
+  error->message(FLERR, message);
+  
   for (int i = 0; i < n_meshes; i++)
     precicec_setMeshAccessRegion(mesh_names[i], mesh_access_region);
 
