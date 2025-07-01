@@ -300,6 +300,8 @@ void FixFluidCoupling::write_particle_force()
 
 int FixFluidCoupling::mirror_particles()
 {
+  precicec_startProfilingSection("solver.advance.mirror_particles");
+
   int ntotal = atom->nlocal;
 
   int mirror_images;
@@ -377,6 +379,8 @@ int FixFluidCoupling::mirror_particles()
 
     ntotal += mirror_images;
   }
+
+  precicec_stopLastProfilingSection();
 
   return ntotal;
 }
