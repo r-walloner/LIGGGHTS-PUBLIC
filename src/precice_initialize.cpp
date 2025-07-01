@@ -41,6 +41,7 @@
 #include "precice_initialize.h"
 #include "domain.h"
 #include "error.h"
+#include "force.h"
 #include "mpi_liggghts.h"
 #include "update.h"
 #include "write_restart.h"
@@ -55,7 +56,7 @@ PreciceInitialize::PreciceInitialize(LAMMPS *lmp) : Pointers(lmp) {}
 
 void PreciceInitialize::command(int narg, char **arg)
 {
-  if (narg < 3)
+  if (narg < 4)
     error->all(FLERR, "Illegal precice_initialize command");
 
   if (domain->box_exist == 0)
@@ -64,8 +65,9 @@ void PreciceInitialize::command(int narg, char **arg)
   // parse arguments
   const char *participant_name = arg[0];
   const char *config_file_name = arg[1];
-  const int n_meshes = narg - 2;
-  const char **mesh_names = (const char **)(arg + 2);
+  const float safety_margin = force->numeric(FLERR, arg[2]);
+  const int n_meshes = narg - 3;
+  const char **mesh_names = (const char **)(arg + 3);
   
   // create participant
   int mpi_rank = -1;
@@ -76,12 +78,11 @@ void PreciceInitialize::command(int narg, char **arg)
       participant_name, config_file_name, mpi_rank, mpi_size, &world);
 
   // set mesh access region
-  // add a small buffer (=particle diameter) to the subdomain bounds
-  const double largest_atom = 2 * vectorMaxN(atom->radius, atom->nlocal);
+  // add a small buffer (=safety_margin) to the subdomain bounds
   const double mesh_access_region[6] = {
-      domain->sublo[0] - largest_atom, domain->subhi[0] + largest_atom,
-      domain->sublo[1] - largest_atom, domain->subhi[1] + largest_atom,
-      domain->sublo[2] - largest_atom, domain->subhi[2] + largest_atom};
+      domain->sublo[0] - safety_margin, domain->subhi[0] + safety_margin,
+      domain->sublo[1] - safety_margin, domain->subhi[1] + safety_margin,
+      domain->sublo[2] - safety_margin, domain->subhi[2] + safety_margin};
 
   // log bounding box
   char message[256];

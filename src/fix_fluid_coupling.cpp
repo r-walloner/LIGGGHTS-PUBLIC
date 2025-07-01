@@ -41,6 +41,7 @@
 #include "fix_fluid_coupling.h"
 #include "fix_gravity.h"
 #include "atom.h"
+#include "domain.h"
 #include "error.h"
 #include "force.h"
 #include "math_extra.h"
@@ -85,6 +86,7 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
   f_fluid_total = NULL;
   expl_momentum = NULL;
   impl_momentum = NULL;
+  x_write = NULL;
 
   memory->create(gravity, 3, "FixFluidCoupling:gravity");
 
@@ -94,7 +96,7 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
   array_atom = NULL;
 
   // Parse arguments
-  if (narg != 9)
+  if (narg != 10)
     error->all(FLERR, "Illegal fix fluid_coupling command");
 
   drag_law = -1;
@@ -126,6 +128,14 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
 
   gravity_flag = force->inumeric(FLERR, arg[7]);
   buoyancy_flag = force->inumeric(FLERR, arg[8]);
+
+  write_mirror_distance = force->numeric(FLERR, arg[9]);
+  if (write_mirror_distance < 0.0)
+    error->all(FLERR, "Write mirror distance must be non-negative");
+  if (write_mirror_distance > 0.0)
+    write_mirror_flag = 1;
+  else
+    write_mirror_flag = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -146,6 +156,7 @@ FixFluidCoupling::~FixFluidCoupling()
   memory->destroy(f_fluid_total);
   memory->destroy(expl_momentum);
   memory->destroy(impl_momentum);
+  memory->destroy(x_write);
   memory->destroy(gravity);
 }
 
@@ -246,25 +257,128 @@ void FixFluidCoupling::read_fluid_velocity(double relative_read_time)
 
 void FixFluidCoupling::write_particle_force()
 {
+  // mirror particles at domain boundaries if requested
+  int total_particles;
+  if (write_mirror_flag)
+  {
+    total_particles = mirror_particles();
+  }
+  else
+  {
+    total_particles = atom->nlocal;
+    x_write = atom->x; // use original particle positions
+  }
+
+  // write data
   if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
   {
     precicec_writeAndMapData(
         "Fluid-Mesh", "ExplicitMomentum",
-        atom->nlocal, *atom->x, *expl_momentum);
+        total_particles, *x_write, *expl_momentum);
     precicec_writeAndMapData(
         "Fluid-Mesh", "ImplicitMomentum",
-        atom->nlocal, *atom->x, impl_momentum);
+        total_particles, *x_write, impl_momentum);
   }
 
   else if (coupling_type == COUPLING_FORCE)
   {
     precicec_writeAndMapData(
         "Fluid-Mesh", "DragForce",
-        atom->nlocal, *atom->x, *f_drag);
+        total_particles, *x_write, *f_drag);
     precicec_writeAndMapData(
         "Fluid-Mesh", "Alpha",
-        atom->nlocal, *atom->x, volume);
+        total_particles, *x_write, volume);
   }
+}
+
+/* ----------------------------------------------------------------------
+   mirror the particles at the domain boundaries to ensure coarse-graining
+   works correctly in the vicinity of the domain boundaries.
+
+   Returns the total number of particles (original + mirrored)
+------------------------------------------------------------------------- */
+
+int FixFluidCoupling::mirror_particles()
+{
+  int ntotal = atom->nlocal;
+
+  int mirror_images;
+  for (int i = 0; i < atom->nlocal; i++)
+  {
+    mirror_images = 0;
+
+    // store original particle position in x_write
+    x_write[i][0] = atom->x[i][0];
+    x_write[i][1] = atom->x[i][1];
+    x_write[i][2] = atom->x[i][2];
+
+    // for all sides of the domain, mirror the particle, if needed
+    if (atom->x[i][0] < domain->boxlo[0] + write_mirror_distance)
+    {
+      x_write[ntotal + mirror_images][0] = 2 * domain->boxlo[0] - atom->x[i][0];
+      x_write[ntotal + mirror_images][1] = atom->x[i][1];
+      x_write[ntotal + mirror_images][2] = atom->x[i][2];
+      mirror_images++;
+    }
+    if (atom->x[i][0] > domain->boxhi[0] - write_mirror_distance)
+    {
+      x_write[ntotal + mirror_images][0] = 2 * domain->boxhi[0] - atom->x[i][0];
+      x_write[ntotal + mirror_images][1] = atom->x[i][1];
+      x_write[ntotal + mirror_images][2] = atom->x[i][2];
+      mirror_images++;
+    }
+    if (atom->x[i][1] < domain->boxlo[1] + write_mirror_distance)
+    {
+      x_write[ntotal + mirror_images][0] = atom->x[i][0];
+      x_write[ntotal + mirror_images][1] = 2 * domain->boxlo[1] - atom->x[i][1];
+      x_write[ntotal + mirror_images][2] = atom->x[i][2];
+      mirror_images++;
+    }
+    if (atom->x[i][1] > domain->boxhi[1] - write_mirror_distance)
+    {
+      x_write[ntotal + mirror_images][0] = atom->x[i][0];
+      x_write[ntotal + mirror_images][1] = 2 * domain->boxhi[1] - atom->x[i][1];
+      x_write[ntotal + mirror_images][2] = atom->x[i][2];
+      mirror_images++;
+    }
+    if (atom->x[i][2] < domain->boxlo[2] + write_mirror_distance)
+    {
+      x_write[ntotal + mirror_images][0] = atom->x[i][0];
+      x_write[ntotal + mirror_images][1] = atom->x[i][1];
+      x_write[ntotal + mirror_images][2] = 2 * domain->boxlo[2] - atom->x[i][2];
+      mirror_images++;
+    }
+    if (atom->x[i][2] > domain->boxhi[2] - write_mirror_distance)
+    {
+      x_write[ntotal + mirror_images][0] = atom->x[i][0];
+      x_write[ntotal + mirror_images][1] = atom->x[i][1];
+      x_write[ntotal + mirror_images][2] = 2 * domain->boxhi[2] - atom->x[i][2];
+      mirror_images++;
+    }
+
+    // duplicate data for all mirror images of this particle
+    for (int m = ntotal; m < ntotal + mirror_images; m++)
+    {
+      if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
+      {
+        expl_momentum[m][0] = expl_momentum[i][0];
+        expl_momentum[m][1] = expl_momentum[i][1];
+        expl_momentum[m][2] = expl_momentum[i][2];
+        impl_momentum[m] = impl_momentum[i];
+      }
+      else if (coupling_type == COUPLING_FORCE)
+      {
+        f_drag[m][0] = f_drag[i][0];
+        f_drag[m][1] = f_drag[i][1];
+        f_drag[m][2] = f_drag[i][2];
+        volume[m] = volume[i];
+      }
+    }
+
+    ntotal += mirror_images;
+  }
+
+  return ntotal;
 }
 
 /* ----------------------------------------------------------------------
@@ -464,16 +578,35 @@ void FixFluidCoupling::grow_arrays(int nmax_new)
   memory->destroy(array_atom);
   memory->create(array_atom, nmax_new, size_peratom_cols, "FixFluidCoupling:array_atom");
   memory->grow(v_fluid, nmax_new, 3, "FixFluidCoupling:v_fluid");
-  memory->grow(volume, nmax_new, "FixFluidCoupling:volume");
   memory->grow(volfrac, nmax_new, "FixFluidCoupling:volfrac");
   memory->grow(drag_coeff, nmax_new, "FixFluidCoupling:drag_coeff");
   memory->grow(reynolds, nmax_new, "FixFluidCoupling:reynolds");
-  memory->grow(f_drag, nmax_new, 3, "FixFluidCoupling:f_drag");
   memory->grow(f_buoyancy, nmax_new, 3, "FixFluidCoupling:f_buoyancy");
   memory->grow(f_gravity, nmax_new, 3, "FixFluidCoupling:f_gravity");
   memory->grow(f_fluid_total, nmax_new, 3, "FixFluidCoupling:f_fluid_total");
-  memory->grow(expl_momentum, nmax_new, 3, "FixFluidCoupling:expl_momentum");
-  memory->grow(impl_momentum, nmax_new, "FixFluidCoupling:impl_momentum");
+
+  // If we need to mirror at the domain boundaries due to coarse-graining,
+  // we need to allocate a larger write buffer for the affected quantities in
+  // order to store the write data for the mirrored ghost particles.
+  // Theoretically, each particle could be mirrored at all 6 domain sides.
+  // Therefore, the the buffer size is 7 times the number of particles.
+  if (write_mirror_flag)
+  {
+    memory->grow(x_write, 7 * nmax_new, 3, "FixFluidCoupling:x_write");
+    memory->grow(volume, 7 * nmax_new, "FixFluidCoupling:volume");
+    memory->grow(f_drag, 7 * nmax_new, 3, "FixFluidCoupling:f_drag");
+    memory->grow(expl_momentum, 7 * nmax_new, 3, "FixFluidCoupling:expl_momentum");
+    memory->grow(impl_momentum, 7 * nmax_new, "FixFluidCoupling:impl_momentum");
+  }
+  else
+  {
+    memory->grow(volume, nmax_new, "FixFluidCoupling:volume");
+    memory->grow(f_drag, nmax_new, 3, "FixFluidCoupling:f_drag");
+    memory->grow(expl_momentum, nmax_new, 3, "FixFluidCoupling:expl_momentum");
+    memory->grow(impl_momentum, nmax_new, "FixFluidCoupling:impl_momentum");
+  }
+
+
   nmax = nmax_new;
 }
 
@@ -595,5 +728,7 @@ void FixFluidCoupling::copy_arrays(int i, int j, int delflag)
 double FixFluidCoupling::memory_usage()
 {
   double bytes = (23 + size_peratom_cols) * atom->nmax * sizeof(double);
+  if (write_mirror_flag)
+    bytes += 6 * atom->nmax * 11 * sizeof(double);
   return bytes;
 }

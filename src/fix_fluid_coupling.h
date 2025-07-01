@@ -61,6 +61,7 @@ class FixFluidCoupling : public Fix {
 
   void read_fluid_velocity(double);
   void write_particle_force();
+  int mirror_particles();
   void compute_volume_fraction();
   void compute_force();
   void apply_force();
@@ -77,6 +78,8 @@ class FixFluidCoupling : public Fix {
   int coupling_type;
   int gravity_flag;
   int buoyancy_flag;
+  int write_mirror_flag;
+  float write_mirror_distance;
 
   double rho_fluid;
   double mu_fluid;
@@ -96,6 +99,7 @@ class FixFluidCoupling : public Fix {
   double **f_fluid_total;
   double **expl_momentum;
   double *impl_momentum;
+  double **x_write;
 };
 
 }
