@@ -414,7 +414,7 @@ void FixFluidCoupling::compute_force()
       // drag force
       // TODO shouldn't this also be ... / (volfrac_p * volfrac_f) ?
       for (int d = 0; d < 3; d++)
-        f_drag[i][d] = beta * volume[i] * v_rel[d] / volfrac_p;
+        f_drag[i][d] = beta * volume[i] * v_rel[d] / (volfrac_p * volfrac_f);
 
       if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
       {
