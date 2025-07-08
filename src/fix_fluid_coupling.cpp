@@ -63,8 +63,8 @@ enum
 
 enum
 {
-  COUPLING_MOMENTUM_SEMI_IMPLICIT,
-  COUPLING_FORCE,
+  COUPLING_SEMI_IMPLICIT,
+  COUPLING_EXPLICIT,
 };
 
 /* ----------------------------------------------------------------------
@@ -112,10 +112,10 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
     error->all(FLERR, "Illegal fluid drag law specified");
 
   coupling_type = -1;
-  if (strcmp(arg[4], "momentum_semi_implicit") == 0)
-    coupling_type = COUPLING_MOMENTUM_SEMI_IMPLICIT;
-  else if (strcmp(arg[4], "force") == 0)
-    coupling_type = COUPLING_FORCE;
+  if (strcmp(arg[4], "semi_implicit") == 0)
+    coupling_type = COUPLING_SEMI_IMPLICIT;
+  else if (strcmp(arg[4], "explicit") == 0)
+    coupling_type = COUPLING_EXPLICIT;
   if (coupling_type == -1)
     error->all(FLERR, "Illegal coupling type specified");
 
@@ -270,7 +270,11 @@ void FixFluidCoupling::write_particle_force()
   }
 
   // write data
-  if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
+  precicec_writeAndMapData(
+        "Fluid-Mesh", "Alpha",
+        total_particles, *x_write, volume);
+
+  if (coupling_type == COUPLING_SEMI_IMPLICIT)
   {
     precicec_writeAndMapData(
         "Fluid-Mesh", "ExplicitMomentum",
@@ -280,14 +284,11 @@ void FixFluidCoupling::write_particle_force()
         total_particles, *x_write, impl_momentum);
   }
 
-  else if (coupling_type == COUPLING_FORCE)
+  else if (coupling_type == COUPLING_EXPLICIT)
   {
     precicec_writeAndMapData(
         "Fluid-Mesh", "DragForce",
         total_particles, *x_write, *f_drag);
-    precicec_writeAndMapData(
-        "Fluid-Mesh", "Alpha",
-        total_particles, *x_write, volume);
   }
 }
 
@@ -361,19 +362,20 @@ int FixFluidCoupling::mirror_particles()
     // duplicate data for all mirror images of this particle
     for (int m = ntotal; m < ntotal + mirror_images; m++)
     {
-      if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
+      volume[m] = volume[i];
+
+      if (coupling_type == COUPLING_SEMI_IMPLICIT)
       {
         expl_momentum[m][0] = expl_momentum[i][0];
         expl_momentum[m][1] = expl_momentum[i][1];
         expl_momentum[m][2] = expl_momentum[i][2];
         impl_momentum[m] = impl_momentum[i];
       }
-      else if (coupling_type == COUPLING_FORCE)
+      else if (coupling_type == COUPLING_EXPLICIT)
       {
         f_drag[m][0] = f_drag[i][0];
         f_drag[m][1] = f_drag[i][1];
         f_drag[m][2] = f_drag[i][2];
-        volume[m] = volume[i];
       }
     }
 
@@ -478,7 +480,7 @@ void FixFluidCoupling::compute_force()
         f_drag[i][d] = .125 * rho_fluid * M_PI * pow(diameter, 2) *
                        drag_coeff[i] * pow(volfrac_f, -(X + 1)) * v_rel[d] * mag_v_rel;
 
-      if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
+      if (coupling_type == COUPLING_SEMI_IMPLICIT)
       {
         impl_momentum[i] = .125 * rho_fluid * M_PI * pow(diameter, 2) *
                            drag_coeff[i] * pow(volfrac_f, -(X + 1)) * mag_v_rel;
@@ -534,7 +536,7 @@ void FixFluidCoupling::compute_force()
       for (int d = 0; d < 3; d++)
         f_drag[i][d] = beta * volume[i] * v_rel[d] / (volfrac_p * volfrac_f);
 
-      if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
+      if (coupling_type == COUPLING_SEMI_IMPLICIT)
       {
         // momentum contribution to fluid
         impl_momentum[i] = beta * volume[i] / (volfrac_p * volfrac_f);
