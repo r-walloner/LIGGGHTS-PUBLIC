@@ -510,21 +510,19 @@ void FixFluidCoupling::compute_force()
                      (volfrac_f * pow(diameter, 2)) +
                  1.75 * volfrac_p * rho_fluid * mag_v_rel / diameter;
         else
-          beta = 3.0 * drag_coeff[i] * volfrac_f * pow(volfrac_p, 2) *
-                 rho_fluid * mag_v_rel * pow(volfrac_f, -2.65) /
-                 (2.0 * diameter);
+          beta = 3.0 * drag_coeff[i] * volfrac_p * rho_fluid * mag_v_rel * pow(volfrac_f, -2.65) /
+                 (4.0 * diameter);
       }
 
       else if (drag_law == DRAG_KOCH_HILL)
       {
-        // TODO this should probably be log10
         if (volfrac_p < 0.4)
           F_0 = (1 + 3 * sqrt(volfrac_p / 2) + 2.109 * volfrac_p * log(volfrac_p) + 16.14 * volfrac_p) /
                 (1 + 0.681 * volfrac_p - 8.48 * pow(volfrac_p, 2) + 8.16 * pow(volfrac_p, 3));
         else
           F_0 = 10 * volfrac_p / pow(volfrac_f, 3);
 
-        F_3 = 0.0673 + 0.0212 * volfrac_p + (0.0232 / pow(volfrac_f, 5));
+        F_3 = 0.0673 + 0.212 * volfrac_p + (0.0232 / pow(volfrac_f, 5));
 
         beta = 18 * mu_fluid * pow(volfrac_f, 2) * volfrac_p *
                (F_0 + 0.5 * F_3 * reynolds[i]) /
@@ -532,14 +530,13 @@ void FixFluidCoupling::compute_force()
       }
 
       // drag force
-      // TODO shouldn't this also be ... / (volfrac_p * volfrac_f) ?
       for (int d = 0; d < 3; d++)
-        f_drag[i][d] = beta * volume[i] * v_rel[d] / (volfrac_p * volfrac_f);
+        f_drag[i][d] = beta * volume[i] * v_rel[d] / volfrac_p;
 
       if (coupling_type == COUPLING_SEMI_IMPLICIT)
       {
         // momentum contribution to fluid
-        impl_momentum[i] = beta * volume[i] / (volfrac_p * volfrac_f);
+        impl_momentum[i] = beta * volume[i] / volfrac_p;
         for (int d = 0; d < 3; d++)
           expl_momentum[i][d] = impl_momentum[i] * atom->v[i][d];
       }
