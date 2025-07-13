@@ -510,7 +510,7 @@ void FixFluidCoupling::compute_force()
                      (volfrac_f * pow(diameter, 2)) +
                  1.75 * volfrac_p * rho_fluid * mag_v_rel / diameter;
         else
-          beta = 3.0 * drag_coeff[i] * volfrac_p * rho_fluid * mag_v_rel * pow(volfrac_f, -2.65) /
+          beta = 3.0 * drag_coeff[i] * volfrac_f * volfrac_p * rho_fluid * mag_v_rel * pow(volfrac_f, -2.65) /
                  (4.0 * diameter);
       }
 
