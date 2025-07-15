@@ -478,13 +478,6 @@ void FixFluidCoupling::compute_force()
         f_drag[i][d] = .125 * rho_fluid * M_PI * pow(diameter, 2) *
                        drag_coeff[i] * pow(volfrac_f, -(X + 1)) * v_rel[d] * mag_v_rel;
 
-      if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
-      {
-        impl_momentum[i] = .125 * rho_fluid * M_PI * pow(diameter, 2) *
-                           drag_coeff[i] * pow(volfrac_f, -(X + 1)) * mag_v_rel;
-        for (int d = 0; d < 3; d++)
-          expl_momentum[i][d] = impl_momentum[i] * atom->v[i][d];
-      }
     }
 
     else if (drag_law == DRAG_GIDASPOW || drag_law == DRAG_KOCH_HILL)
@@ -508,9 +501,9 @@ void FixFluidCoupling::compute_force()
                      (volfrac_f * pow(diameter, 2)) +
                  1.75 * volfrac_p * rho_fluid * mag_v_rel / diameter;
         else
-          beta = 3.0 * drag_coeff[i] * volfrac_f * pow(volfrac_p, 2) *
+          beta = 3.0 * drag_coeff[i] * volfrac_f * pow(volfrac_p, 1) *
                  rho_fluid * mag_v_rel * pow(volfrac_f, -2.65) /
-                 (2.0 * diameter);
+                 (4.0 * diameter);
       }
 
       else if (drag_law == DRAG_KOCH_HILL)
@@ -522,7 +515,7 @@ void FixFluidCoupling::compute_force()
         else
           F_0 = 10 * volfrac_p / pow(volfrac_f, 3);
 
-        F_3 = 0.0673 + 0.0212 * volfrac_p + (0.0232 / pow(volfrac_f, 5));
+        F_3 = 0.0673 + 0.212 * volfrac_p + (0.0232 / pow(volfrac_f, 5));
 
         beta = 18 * mu_fluid * pow(volfrac_f, 2) * volfrac_p *
                (F_0 + 0.5 * F_3 * reynolds[i]) /
@@ -532,15 +525,7 @@ void FixFluidCoupling::compute_force()
       // drag force
       // TODO shouldn't this also be ... / (volfrac_p * volfrac_f) ?
       for (int d = 0; d < 3; d++)
-        f_drag[i][d] = beta * volume[i] * v_rel[d] / (volfrac_p * volfrac_f);
-
-      if (coupling_type == COUPLING_MOMENTUM_SEMI_IMPLICIT)
-      {
-        // momentum contribution to fluid
-        impl_momentum[i] = beta * volume[i] / (volfrac_p * volfrac_f);
-        for (int d = 0; d < 3; d++)
-          expl_momentum[i][d] = impl_momentum[i] * atom->v[i][d];
-      }
+        f_drag[i][d] = beta * volume[i] * v_rel[d] / (volfrac_p);
     }
 
     // gravity and buoyancy forces
