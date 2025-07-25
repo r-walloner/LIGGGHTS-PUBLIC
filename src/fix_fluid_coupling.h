@@ -60,7 +60,7 @@ class FixFluidCoupling : public Fix {
   void final_integrate();
 
   void read_fluid_velocity(double);
-  void write_particle_force();
+  void write_particle_force_and_alpha();
   int mirror_particles();
   void compute_volume_fraction();
   void compute_force();

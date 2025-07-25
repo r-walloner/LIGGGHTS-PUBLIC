@@ -58,7 +58,7 @@ enum
   DRAG_STOKES,
   DRAG_GIDASPOW,
   DRAG_KOCH_HILL,
-  DRAG_ZHAO_SHAN,
+  DRAG_ZHAO_SHAN, // This drag law is named Di Felice and Abraham in the text
 };
 
 enum
@@ -107,7 +107,7 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
   else if (strcmp(arg[3], "koch_hill") == 0)
     drag_law = DRAG_KOCH_HILL;
   else if (strcmp(arg[3], "zhao_shan") == 0)
-    drag_law = DRAG_ZHAO_SHAN;
+    drag_law = DRAG_ZHAO_SHAN; // This drag law is named Di Felice and Abraham in the text
   if (drag_law == -1)
     error->all(FLERR, "Illegal fluid drag law specified");
 
@@ -236,7 +236,7 @@ void FixFluidCoupling::final_integrate()
   read_fluid_velocity(update->dt);
   compute_volume_fraction();
   compute_force();
-  write_particle_force();
+  write_particle_force_and_alpha();
 }
 
 /* ----------------------------------------------------------------------
@@ -255,7 +255,7 @@ void FixFluidCoupling::read_fluid_velocity(double relative_read_time)
    fraction to preCICE
 ------------------------------------------------------------------------- */
 
-void FixFluidCoupling::write_particle_force()
+void FixFluidCoupling::write_particle_force_and_alpha()
 {
   // mirror particles at domain boundaries if requested
   int total_particles;
@@ -308,6 +308,9 @@ int FixFluidCoupling::mirror_particles()
   int mirror_images;
   for (int i = 0; i < atom->nlocal; i++)
   {
+    if (!(atom->mask[i] & groupbit))
+      continue;
+
     mirror_images = 0;
 
     // store original particle position in x_write
@@ -462,7 +465,7 @@ void FixFluidCoupling::compute_force()
       // note: this does not support semi-implicit momentum coupling yet
     }
 
-    else if (drag_law == DRAG_ZHAO_SHAN)
+    else if (drag_law == DRAG_ZHAO_SHAN) // This drag law is named Di Felice and Abraham in the text
     {
       reynolds[i] = rho_fluid * diameter * mag_v_rel / mu_fluid;
 
