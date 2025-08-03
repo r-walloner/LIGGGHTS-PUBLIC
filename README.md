@@ -1,3 +1,35 @@
+# LIGGGHTS coupled with preCICE for unresolved CFD-DEM
+This is the modified version of LIGGGHTS described in Section 3.4 of the bachelor's thesis thesis *Flexible mesh-particle coupling with preCICE* by Robin Walloner.
+It is based on LIGGGHTS-PUBLIC version 3.8.0.
+The original README of LIGGGHTS-PUBLIC is included at the end of this file.
+
+## Modifications in this version
+- Integrate preCICE using new input script commands `src/precice_initialize.cpp`, `src/precice_advance.cpp`, and `src/precice_finalize.cpp`
+- Add fluid coupling fix `src/fix_fluid_coupling.cpp`
+- Modify `src/CMakeLists.txt` to link preCICE
+
+## Building
+```sh
+mkdir build
+cd build
+cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DENABLE_MODEL_COHESION_OFF=ON \
+    -DENABLE_MODEL_HOOKE=ON \
+    -DENABLE_MODEL_ROLLING_OFF=ON \
+    -DENABLE_MODEL_SURFACE_DEFAULT=ON \
+    -DENABLE_MODEL_TANGENTIAL_HISTORY=ON \
+    -DENABLE_MPI=ON \
+    -DENABLE_PRECICE=ON \
+    -DENABLE_VORONOI=ON \
+    -DENABLE_VTK=ON \
+    ../src
+cmake --build . --parallel $(nproc)
+cmake --install .
+```
+
+# Original README of LIGGGHTS-PUBLIC
+
 <div align ="center">
 <p float="left">
   <img src="doc/liggghts_logo.jpg" width="300" />
