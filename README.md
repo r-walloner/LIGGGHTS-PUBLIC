@@ -1,5 +1,5 @@
 # LIGGGHTS coupled with preCICE for unresolved CFD-DEM
-This is the modified version of LIGGGHTS described in Section 3.4 of the bachelor's thesis thesis *Flexible mesh-particle coupling with preCICE* by Robin Walloner.
+This is the modified version of LIGGGHTS described in Section 3.4 of the bachelor's thesis *Flexible mesh-particle coupling with preCICE* by Robin Walloner.
 It is based on LIGGGHTS-PUBLIC version 3.8.0.
 The original README of LIGGGHTS-PUBLIC is included at the end of this file.
 
