@@ -76,6 +76,7 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
 {
   nmax = 0;
   v_fluid = NULL;
+  p_grad_fluid = NULL;
   volume = NULL;
   volfrac = NULL;
   drag_coeff = NULL;
@@ -92,11 +93,11 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
 
   peratom_flag = 1;
   peratom_freq = 1;
-  size_peratom_cols = 27;
+  size_peratom_cols = 30;
   array_atom = NULL;
 
   // Parse arguments
-  if (narg != 10)
+  if (narg != 11)
     error->all(FLERR, "Illegal fix fluid_coupling command");
 
   drag_law = -1;
@@ -136,6 +137,11 @@ FixFluidCoupling::FixFluidCoupling(LAMMPS *lmp, int narg, char **arg)
     write_mirror_flag = 1;
   else
     write_mirror_flag = 0;
+
+  read_pressure_gradient_flag = force->numeric(FLERR, arg[10]);
+
+  if (read_pressure_gradient_flag && buoyancy_flag)
+    error->all(FLERR, "Only the pressure gradient or the buoyancy flag may be set.");
 }
 
 /* ----------------------------------------------------------------------
@@ -146,6 +152,7 @@ FixFluidCoupling::~FixFluidCoupling()
 {
   memory->destroy(array_atom);
   memory->destroy(v_fluid);
+  memory->destroy(p_grad_fluid);
   memory->destroy(volume);
   memory->destroy(volfrac);
   memory->destroy(drag_coeff);
@@ -206,9 +213,13 @@ void FixFluidCoupling::setup(int vflag)
 {
   // The data we compute here is 0. But this is needed to prevent a segfault
   // when dumping data to the output file in the very first timestep.
+
   if (atom->nlocal > nmax)
     grow_arrays(atom->nlocal);
   compute_array_atom();
+
+  if (atom->nlocal ==0 && nmax == 0)
+      grow_arrays(1);
 }
 
 /* ----------------------------------------------------------------------
@@ -221,6 +232,9 @@ void FixFluidCoupling::post_force(int vflag)
     grow_arrays(atom->nlocal);
 
   read_fluid_velocity(0);
+  if(read_pressure_gradient_flag == 1) {
+    read_fluid_pressure_gradient(0);
+  }
   compute_volume_fraction();
   compute_force();
   apply_force();
@@ -248,6 +262,17 @@ void FixFluidCoupling::read_fluid_velocity(double relative_read_time)
   precicec_mapAndReadData(
       "Fluid-Mesh", "Velocity",
       atom->nlocal, *atom->x, relative_read_time, *v_fluid);
+}
+
+/* ----------------------------------------------------------------------
+   read the fluid pressure gradient from preCICE into p_grad_fluid array
+------------------------------------------------------------------------- */
+
+void FixFluidCoupling::read_fluid_pressure_gradient(double relative_read_time)
+{
+  precicec_mapAndReadData(
+      "Fluid-Mesh", "PressureGradient",
+      atom->nlocal, *atom->x, relative_read_time, *p_grad_fluid);
 }
 
 /* ----------------------------------------------------------------------
@@ -539,6 +564,7 @@ void FixFluidCoupling::compute_force()
       if (coupling_type == COUPLING_SEMI_IMPLICIT)
       {
         // momentum contribution to fluid
+        // strictly speaking only the coefficient, the multiplication with U follows on the fluid side
         impl_momentum[i] = beta * volume[i] / volfrac_p;
         for (int d = 0; d < 3; d++)
           expl_momentum[i][d] = impl_momentum[i] * atom->v[i][d];
@@ -550,7 +576,10 @@ void FixFluidCoupling::compute_force()
     for (int d = 0; d < 3; d++)
     {
       f_gravity[i][d] = gravity_flag * volume[i] * atom->density[i] * gravity[d];
+      // Only one of the two flag may be true
       f_buoyancy[i][d] = buoyancy_flag * volume[i] * rho_fluid * -gravity[d];
+      // The pressure gradient received from OpenFOAM is scaled by the density, so we have to account for it
+      f_buoyancy[i][d] = read_pressure_gradient_flag * volume[i] * rho_fluid * -p_grad_fluid[i][d];
     }
   }
 
@@ -584,6 +613,7 @@ void FixFluidCoupling::grow_arrays(int nmax_new)
   memory->destroy(array_atom);
   memory->create(array_atom, nmax_new, size_peratom_cols, "FixFluidCoupling:array_atom");
   memory->grow(v_fluid, nmax_new, 3, "FixFluidCoupling:v_fluid");
+  memory->grow(p_grad_fluid, nmax_new, 3, "FixFluidCoupling:p_grad_fluid");
   memory->grow(volfrac, nmax_new, "FixFluidCoupling:volfrac");
   memory->grow(drag_coeff, nmax_new, "FixFluidCoupling:drag_coeff");
   memory->grow(reynolds, nmax_new, "FixFluidCoupling:reynolds");
@@ -649,6 +679,9 @@ double FixFluidCoupling::compute_array(int i, int j)
   else if (j == 25) return f_gravity[i][0];
   else if (j == 26) return f_gravity[i][1];
   else if (j == 27) return f_gravity[i][2];
+  else if (j == 28) return p_grad_fluid[i][0];
+  else if (j == 29) return p_grad_fluid[i][1];
+  else if (j == 30) return p_grad_fluid[i][2];
   else
     error->all(FLERR, "Invalid column index in FixFluidCoupling::compute_array");
   return 0.0; // unreachable, but avoids compiler warning
@@ -660,7 +693,7 @@ double FixFluidCoupling::compute_array(int i, int j)
 
 void FixFluidCoupling::compute_array_atom()
 {
-  for (int i = 0; i < nmax; i++)
+  for (int i = 0; i < atom->nlocal; i++)
     for (int j = 0; j < size_peratom_cols; j++)
       array_atom[i][j] = compute_array(i, j + 1);
 }
@@ -694,6 +727,9 @@ void FixFluidCoupling::set_arrays(int i)
   expl_momentum[i][1] = 0.0;
   expl_momentum[i][2] = 0.0;
   impl_momentum[i] = 0.0;
+  p_grad_fluid[i][0] = 0.0;
+  p_grad_fluid[i][1] = 0.0;
+  p_grad_fluid[i][2] = 0.0;
 }
 
 /* ----------------------------------------------------------------------
@@ -725,6 +761,9 @@ void FixFluidCoupling::copy_arrays(int i, int j, int delflag)
   expl_momentum[j][1] = expl_momentum[i][1];
   expl_momentum[j][2] = expl_momentum[i][2];
   impl_momentum[j] = impl_momentum[i];
+  p_grad_fluid[j][0] = p_grad_fluid[i][0];
+  p_grad_fluid[j][1] = p_grad_fluid[i][1];
+  p_grad_fluid[j][2] = p_grad_fluid[i][2];
 }
 
 /* ----------------------------------------------------------------------

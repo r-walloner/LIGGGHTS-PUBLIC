@@ -60,6 +60,7 @@ class FixFluidCoupling : public Fix {
   void final_integrate();
 
   void read_fluid_velocity(double);
+  void read_fluid_pressure_gradient(double relative_read_time);
   void write_particle_force_and_alpha();
   int mirror_particles();
   void compute_volume_fraction();
@@ -71,12 +72,13 @@ class FixFluidCoupling : public Fix {
   void grow_arrays(int);
   void set_arrays(int);
   void copy_arrays(int, int,int);
-  double memory_usage();  
+  double memory_usage();
 
  private:
   int drag_law;
   int coupling_type;
   int gravity_flag;
+  int read_pressure_gradient_flag;
   int buoyancy_flag;
   int write_mirror_flag;
   float write_mirror_distance;
@@ -89,6 +91,7 @@ class FixFluidCoupling : public Fix {
 
   double nmax;
   double **v_fluid;
+  double **p_grad_fluid;
   double *volume;
   double *volfrac;
   double *drag_coeff;
